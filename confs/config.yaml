@@ -40,7 +40,7 @@ MANO:
 
 paths:
   base_dir: None
-  DATA_DIR: dyn-hamr/mano
+  DATA_DIR: mano
   vposer: VPoser/pretrained/Vposer_right_mirrored
 
 HMP:
