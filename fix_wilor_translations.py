@@ -2,11 +2,15 @@
 Fix WiLoR cam_trans scale for Dyn-HaMR compatibility.
 
 WiLoR exports cam_trans for a virtual camera with focal_length ~ 37500 px,
-but Dyn-HaMR uses the real VIPE camera (fx ~ 757 px).
+but Dyn-HaMR uses the real camera (e.g. VIPE, fx ~ 757 px).
 This script recomputes cam_trans so the MANO wrist projects to the
 WiLoR-detected 2D keypoint under Dyn-HaMR's actual intrinsics.
+
+Usage:
+  python fix_wilor_translations.py --cameras cameras/shot-0/cameras.npz --tracks tracks/
 """
 
+import argparse
 import os
 import sys
 import json
@@ -17,13 +21,15 @@ import torch
 sys.path.insert(0, '.')
 from body_model import MANO
 
-# Load camera intrinsics (assumed static across frames)
-CAMERA_NPZ = '/home/ccc/projects/Dyn-HaMR/demo_data/dynhamr_out/cameras/shot-0/cameras.npz'
-cam_data = np.load(CAMERA_NPZ, allow_pickle=True)
+parser = argparse.ArgumentParser()
+parser.add_argument('--cameras', required=True, help='Path to cameras.npz')
+parser.add_argument('--tracks', required=True, help='Path to tracks directory')
+args = parser.parse_args()
+
+cam_data = np.load(args.cameras, allow_pickle=True)
 fx, fy, cx, cy = cam_data['intrins'][0]
 print(f"Camera intrinsics: fx={fx:.2f}, fy={fy:.2f}, cx={cx:.2f}, cy={cy:.2f}")
 
-# Load MANO model (right-hand model used for both; left handled by x-flip)
 device = torch.device('cpu')
 mano = MANO(batch_size=1, pose2rot=True, model_path='mano', is_rhand=True).to(device)
 
@@ -138,9 +144,8 @@ def fix_track(track_dir):
 
 
 if __name__ == '__main__':
-    track_root = '/home/ccc/projects/Dyn-HaMR/demo_data/dynhamr_out/tracks'
-    for tid in sorted(os.listdir(track_root)):
-        track_dir = os.path.join(track_root, tid)
+    for tid in sorted(os.listdir(args.tracks)):
+        track_dir = os.path.join(args.tracks, tid)
         if not os.path.isdir(track_dir):
             continue
         print(f"\nProcessing track {tid}...")
