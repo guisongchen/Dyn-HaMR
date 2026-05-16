@@ -1,0 +1,32 @@
+# Core
+torch
+numpy
+opencv-python
+
+# MANO hand model
+smplx
+mano
+
+# Config & CLI
+hydra-core
+
+# Optimization & math
+scipy
+matplotlib
+
+# Visualization
+pyrender
+trimesh
+pytorch3d
+Pillow
+imageio
+imageio-ffmpeg
+tensorboard
+
+# Data loading
+joblib
+tqdm
+pandas
+
+# Misc
+configer
