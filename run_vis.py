@@ -1,12 +1,10 @@
 import os
-import glob
 
 import imageio
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from body_model import MANO
-from omegaconf import DictConfig, OmegaConf
 
 from data import get_dataset_from_cfg
 from optim.output import (
@@ -19,8 +17,7 @@ from util.tensor import get_device, move_to, detach_all, to_torch
 from vis.output import prep_result_vis, animate_scene, make_video_grid_2x2
 from vis.tools import vis_keypoints
 from vis.viewer import init_viewer
-import time
-from geometry.mesh import save_mesh_scenes, vertices_to_trimesh
+from geometry.mesh import vertices_to_trimesh
 LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
 
 def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
@@ -32,7 +29,6 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
 
     cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
     mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
-    print('initializing MANO model with cfgs:', mano_cfg, 'B*T', B*T)
     hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
 
     for res_dict, mesh_dir in zip(res_dicts, mesh_dirs):
@@ -52,7 +48,6 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
         scene_dir = mesh_dir
         verts, joints, colors, l_faces, r_faces, is_right, bounds = scene_dict["geometry"]
         T = len(verts)
-        print(f"{T} mesh frames for ", mesh_dir)
         times = list(range(0, T, 1))
         flag = False
         for t in times:
@@ -68,22 +63,16 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
         for t in times:
             if len(is_right[t]) > 1:
                 assert (is_right[t].cpu().numpy().tolist() == [0,1])
-                # l_meshes = make_batch_mesh(verts[t][0][None], l_faces[t], colors[t][0][None])
-                # r_meshes = make_batch_mesh(verts[t][1][None], r_faces[t], colors[t][1][None])
-                # assert len(l_meshes) == 1
-                # assert len(r_meshes) == 1
 
                 verts[t][0] -= init_trans
                 joints[t][0] -= init_trans
                 tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), l_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=0)
                 tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_0.obj'))
-                # np.save(f'{str(t).zfill(6)}_0.npy', joints[t][0].detach().cpu().numpy())
 
                 verts[t][1] -= init_trans
                 joints[t][1] -= init_trans
                 tmesh = vertices_to_trimesh(verts[t][1].detach().cpu().numpy(), r_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=1)
                 tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_1.obj'))
-                # np.save(f'{str(t).zfill(6)}_1.npy', joints[t][1].detach().cpu().numpy())
 
             else:
                 assert len(is_right[t]) == 1
@@ -92,14 +81,12 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
                     joints[t][0] -= init_trans
                     tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), l_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=0)
                     tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_0.obj'))
-                    # np.save(f'{str(t).zfill(6)}_0.npy', joints[t][0].detach().cpu().numpy())
 
                 elif is_right[t] == 1:
                     verts[t][0] -= init_trans
                     joints[t][0] -= init_trans
                     tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), r_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=1)
                     tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_1.obj'))
-                    # np.save(f'{str(t).zfill(6)}_1.npy', joints[t][0].detach().cpu().numpy())
 
 
 def run_vis(
@@ -118,14 +105,7 @@ def run_vis(
     **kwargs
 ):
     save_dir = out_dir if save_dir is None else save_dir
-    print("OUT_DIR", out_dir)
-    print("SAVE_DIR", save_dir)
-    print("VISUALIZING PHASES", phases)
-    print("RENDERING VIEWS", render_views)
-    print("RENDER_KPS", render_kps)
-    print("OVERWRITE", overwrite)
 
-    # save input frames
     inp_vid_path = save_input_frames(
         dataset,
         f"{save_dir}/{dataset.seq_name}_input.mp4",
@@ -150,7 +130,6 @@ def run_vis(
 
         elif os.path.isdir(res_dir):
             res_path_dict = get_results_paths(res_dir)
-            print(f"FOUND {len(res_path_dict)} results in {res_dir}")
             it = sorted(res_path_dict.keys())[-1]
             res = load_result(res_path_dict[it])["world"]
 
@@ -211,7 +190,6 @@ def get_input_dict(dataset):
         "root_orient": np.stack(d["init_root_orient"], axis=0),
     }
     input_params = to_torch(input_params)
-    print({k: v.shape for k, v in input_params.items()})
     return input_params
 
 
@@ -255,7 +233,6 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
 
     cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
     mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
-    print('initializing MANO model with cfgs:', mano_cfg, 'B*T', B*T)
     hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
     vis = init_viewer(
         dataset.img_size,
@@ -272,9 +249,8 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
         dataset.load_data()
         if len(dataset.data_dict["joints2d"]) > 0:
             joints2d = dataset.data_dict["joints2d"][0]  # First track: (T, J, 3)
-            keypoints_seq = [joints2d[t] for t in range(T)]  # List of (J, 3) arrays
+            keypoints_seq = [joints2d[t] for t in range(T)]
             vis.set_keypoints_seq(keypoints_seq)
-            print(f"Loaded {T} frames of 2D keypoints with {joints2d.shape[1]} joints")
 
     save_paths_all = []
     render_views = kwargs.get('render_views', ['src_cam', 'above', 'side'])
@@ -284,7 +260,6 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
     other_views = [v for v in render_views if v != 'src_cam']
     
     for res_dict, out_name in zip(res_dicts, out_names):
-        print(f'preparing results for rendering {out_name}')
         res_dict = move_to(res_dict, device)
         
         # Render src_cam WITH temporal smoothing but WITHOUT trans smoothing
@@ -334,8 +309,7 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
                 # Convert to list for first track
                 pred_keypoints_seq = [joints2d_pred[0, t].cpu().numpy() for t in range(joints2d_pred.shape[1])]
                 vis.set_pred_keypoints_seq(pred_keypoints_seq)
-                print(f"Computed {len(pred_keypoints_seq)} frames of predicted 2D keypoints using reproject()")
-            
+
             # Render only src_cam view
             kwargs_src = kwargs.copy()
             kwargs_src['render_views'] = src_cam_views
