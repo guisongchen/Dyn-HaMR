@@ -1,6 +1,5 @@
 import os
 import sys
-import datetime
 import random
 import numpy as np
 import time
@@ -158,12 +157,7 @@ def main():
 
     set_seed(cfg.get('seed', 42))
 
-    out_dir = os.path.abspath(os.path.join(
-        "outputs/logs",
-        f"{cfg.data.type}-{cfg.data.split}",
-        datetime.datetime.now().strftime("%Y-%m-%d"),
-        cfg.data.name,
-    ))
+    out_dir = os.path.abspath("outputs")
     os.makedirs(out_dir, exist_ok=True)
     os.chdir(out_dir)
     print("out_dir", out_dir)
