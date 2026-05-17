@@ -140,12 +140,7 @@ class SMPL(nn.Module):
         super(SMPL, self).__init__()
         self.batch_size = batch_size
         shapedirs = data_struct.shapedirs
-        if (shapedirs.shape[-1] < self.SHAPE_SPACE_DIM):
-            print(f'WARNING: You are using a {self.name()} model, with only'
-                  ' 10 shape coefficients.')
-            num_betas = min(num_betas, 10)
-        else:
-            num_betas = min(num_betas, self.SHAPE_SPACE_DIM)
+        num_betas = min(num_betas, shapedirs.shape[-1])
 
         if self.age=='kid':
             v_template_smil = np.load(kid_template_path)
