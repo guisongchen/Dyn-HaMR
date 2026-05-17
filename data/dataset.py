@@ -38,7 +38,6 @@ def get_dataset_from_cfg(cfg):
     if not args.use_cams:
         args.sources.cameras = ""
 
-    args.sources = expand_source_paths(args.sources)
     print("DATA SOURCES", args.sources)
     a = time.time()
     check_data_sources(args, cfg)
@@ -55,19 +54,6 @@ def get_dataset_from_cfg(cfg):
         split_cameras=args.get("split_cameras", True),
     )
 
-
-def expand_source_paths(data_sources):
-    return {k: get_data_source(v) for k, v in data_sources.items()}
-
-
-def get_data_source(source):
-    matches = glob.glob(source)
-    if len(matches) < 1:
-        print(f"{source} does not exist")
-        return source  # return anyway for default values
-    if len(matches) > 1:
-        raise ValueError(f"{source} is not unique")
-    return matches[0]
 
 
 def check_data_sources(args, cfg):

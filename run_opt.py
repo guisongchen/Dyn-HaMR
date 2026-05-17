@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from omegaconf import OmegaConf
 
-from data import get_dataset_from_cfg, expand_source_paths
+from data import get_dataset_from_cfg
 
 from optim.base_scene import BaseSceneModel
 
@@ -161,8 +161,6 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     os.chdir(out_dir)
     print("out_dir", out_dir)
-
-    cfg.data.sources = expand_source_paths(cfg.data.sources)
 
     dataset = get_dataset_from_cfg(cfg)
     save_track_info(dataset, out_dir)

@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from body_model import MANO
 from omegaconf import DictConfig, OmegaConf
 
-from data import get_dataset_from_cfg, expand_source_paths
+from data import get_dataset_from_cfg
 from optim.output import (
     get_results_paths,
     load_result,
@@ -384,9 +384,6 @@ def visualize_log(log_dir, dev_id, phases, save_dir=None, **kwargs):
     print(cfg.data.sources)
 
     # make sure we get all necessary inputs
-    cfg.data.sources = expand_source_paths(cfg.data.sources)
-    print("SOURCES", cfg.data.sources)
-    # cfg.data.track_ids = "001"
     dataset = get_dataset_from_cfg(cfg)
     if len(dataset) < 1:
         print(f"No tracks in dataset, skipping")
