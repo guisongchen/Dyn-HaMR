@@ -8,7 +8,6 @@ import numpy as np
 import torch
 
 from util.tensor import move_to, detach_all, to_torch
-from util.logger import Logger
 
 
 def get_results_paths(res_dir):
@@ -52,7 +51,6 @@ def save_initial_predictions(model, out_dir, seq_name):
 
     for name, results in pred_dict.items():
         out_path = f"{out_dir}/{seq_name}_{0:06d}_init_{name}_results.npz"
-        Logger.log(f"saving initial results to {out_path}")
         np.savez(out_path, **results)
         # print('cam_R in save_initial_predictions: ', results['cam_R'].shape, results['cam_R'])
         # print((results['cam_R'][0] == results['cam_R'][1]).all())
@@ -74,7 +72,6 @@ def save_input_poses(dataset, out_dir, seq_name, name="phalp"):
     }
     print({k: v.shape for k, v in res.items()})
     out_path = f"{out_dir}/{seq_name}_{0:06d}_{name}_world_results.npz"
-    Logger.log(f"saving inputs to {out_path}")
     np.savez(out_path, **res)
 
 

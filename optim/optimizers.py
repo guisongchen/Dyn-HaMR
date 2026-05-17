@@ -4,7 +4,6 @@ import numpy as np
 import torch
 
 from body_model import OP_IGNORE_JOINTS
-from util.logger import Logger
 from util.tensor import move_to, detach_all
 from vis.output import prep_result_vis, animate_scene
 
@@ -30,7 +29,6 @@ class StageOptimizer(object):
         vis_every=-1,
         **kwargs,
     ):
-        Logger.log(f"INITIALIZING OPTIMIZER {name} for {param_names}")
         self.name = name
         self.model = model
 
@@ -46,7 +44,6 @@ class StageOptimizer(object):
         self.cur_loss = 0
 
     def set_opt_vars(self, param_names):
-        Logger.log(f"Set param names: {param_names}")
 
         self.param_names = param_names
         self.model.params.set_require_grads(self.param_names)
@@ -71,7 +68,6 @@ class StageOptimizer(object):
         i = self.cur_step
         for name, results in pred_dict.items():
             out_path = f"{out_dir}/{seq_name}_{i:06d}_{name}_results.npz"
-            Logger.log(f"saving params to {out_path}")
             np.savez(out_path, **results)
 
     def vis_result(self, res_dir, obs_data, vis=None, num_steps=-1):
@@ -101,7 +97,6 @@ class StageOptimizer(object):
         os.makedirs(res_dir, exist_ok=True)
         seq_name = obs_data["seq_name"][0]
 
-        Logger.log(f"OPTIMIZING {self.name} FOR {num_iters} ITERATIONS")
 
         self._obs_data = obs_data
 

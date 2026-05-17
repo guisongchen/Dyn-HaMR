@@ -7,7 +7,6 @@ import torch.nn.functional as F
 
 from body_model import MANO_JOINTS, KEYPT_VERTS, smpl_to_openpose
 from geometry.rotation import batch_rodrigues, rotation_matrix_to_angle_axis
-from util.logger import Logger
 from util.tensor import (
     detach_all,
     scatter_intervals,
@@ -111,7 +110,6 @@ class MovingSceneModel(BaseSceneModel):
         """
         we need to also optimize for floor and world scale
         """
-        Logger.log("Initializing moving scene model with observed data")
 
         self.params.set_cameras(
             cam_data,
@@ -153,8 +151,6 @@ class MovingSceneModel(BaseSceneModel):
     #                 self.batch_size, dtype=torch.long, device=floor_plane.device
     #             )
 
-    #     Logger.log(f"ESTIMATED FLOORS: {str(floor_plane.detach().cpu())}")
-    #     Logger.log(f"FLOOR IDCS: {str(floor_idcs.detach().cpu())}")
     #     self.params.set_param("floor_plane", floor_plane.float().detach())
     #     self.params.set_param(
     #         "floor_idcs", floor_idcs.long().detach(), requires_grad=False
@@ -184,11 +180,9 @@ class MovingSceneModel(BaseSceneModel):
         latent_pose = param_dict["latent_pose"]  # (B, T, D)
         betas = param_dict["betas"]  # (B, b)
 
-        Logger.log(f"SEL TRACKS {trans.shape}, {root_orient.shape}")
 
         # save each track's first appearance
         self.params.set_param("trans", trans[:, :1])
-        Logger.log(f"INITIAL TRANS {trans[:, :1].detach().cpu()}")
         self.params.set_param("root_orient", root_orient[:, :1])
         self.params.set_param("latent_pose", latent_pose[:, :1])
         self.params.set_param("betas", betas)
@@ -500,7 +494,6 @@ class MovingSceneModel(BaseSceneModel):
         is_sampling = latent_motion is None
         Tm1 = num_steps if latent_motion is None else latent_motion.size(1)
         if is_sampling and Tm1 <= 0:
-            Logger.log("num_steps must be positive to sample!")
             exit()
 
         # need to first transform initial state into canonical coordinate frame

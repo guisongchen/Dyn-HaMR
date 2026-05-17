@@ -10,7 +10,6 @@ from geometry.rotation import (
     rotation_matrix_to_angle_axis,
     angle_axis_to_rotation_matrix,
 )
-from util.logger import Logger
 from util.tensor import move_to, detach_all
 
 # from .helpers import estimate_initial_trans
@@ -70,7 +69,6 @@ class BaseSceneModel(nn.Module):
         self.params = CameraParams(batch_size)
 
     def initialize(self, obs_data, cam_data):
-        Logger.log("Initializing scene model with observed data")
 
         # initialize cameras
         self.params.set_cameras(

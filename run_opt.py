@@ -22,7 +22,6 @@ from optim.output import (
 from vis.viewer import init_viewer
 from body_model import MANO
 from util.loaders import resolve_cfg_paths
-from util.logger import Logger
 from util.tensor import get_device, move_to
 
 from run_vis import run_vis
@@ -70,7 +69,6 @@ def run_opt(cfg, dataset, out_dir, device):
     # check whether the cameras are static
     # if static, cannot optimize scale
     cfg.model.opt_scale &= not dataset.cam_data.is_static
-    Logger.log(f"OPT SCALE {cfg.model.opt_scale}")
 
     # loss weights for all stages
     all_loss_weights = cfg.optim.loss_weights
@@ -83,7 +81,6 @@ def run_opt(cfg, dataset, out_dir, device):
     cfg = resolve_cfg_paths(cfg)
     cfg.paths.base_dir = os.path.abspath(os.path.dirname(__file__))
     paths = cfg.paths
-    Logger.log("Loading hand model")
     # Instantiate MANO model
     mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
     print('initializing MANO model with cfgs:', mano_cfg)
@@ -160,7 +157,6 @@ def main(cfg: DictConfig):
 
     out_dir = os.getcwd()
     print("out_dir", out_dir)
-    Logger.init(f"{out_dir}/opt_log.txt")
 
     # make sure we get all necessary inputs
     print("init SOURCES", cfg.data.sources)

@@ -14,7 +14,6 @@ from body_model import MANO_JOINTS
 assert len(MANO_JOINTS) == 16
 import time
 
-from util.logger import Logger
 from geometry.camera import invert_camera
 
 from .tools import read_keypoints, read_mask_path, load_mano_preds, load_keypoints_with_interp
@@ -347,7 +346,6 @@ class CameraData(object):
         img_w, img_h = self.img_size
         fpath = os.path.join(self.cam_dir, "cameras.npz")
         if os.path.isfile(fpath) and not self.is_static:
-            Logger.log(f"Loading cameras from {fpath}...")
             cam_R, cam_t, intrins, width, height = load_cameras_npz(fpath, self.seq_len)
             scale = img_w / width
             self.intrins = scale * intrins[sidx:eidx]
@@ -361,7 +359,6 @@ class CameraData(object):
             self.cam_t = cam_t[sidx:eidx] - t0
         else:
             # raise ValueError
-            Logger.log(f"WARNING: {fpath} does not exist, using static cameras...")
             default_focal = 0.5 * (img_h + img_w)
             self.intrins = torch.tensor(
                 [default_focal, default_focal, img_w / 2, img_h / 2]
@@ -370,7 +367,6 @@ class CameraData(object):
             self.cam_R = torch.eye(3)[None].repeat(self.seq_len, 1, 1)
             self.cam_t = torch.zeros(self.seq_len, 3)
 
-        Logger.log(f"Images have {img_w}x{img_h}, intrins {self.intrins[0]}")
         print("CAMERA DATA", self.cam_R.shape, self.cam_t.shape, self.intrins[0])
 
     def world2cam(self):

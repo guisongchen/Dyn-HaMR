@@ -7,7 +7,6 @@ import torch.nn.functional as F
 # from body_model import MANO_JOINTS
 from geometry.camera import invert_camera, compose_cameras
 from geometry.rotation import batch_rodrigues
-from util.logger import Logger
 from util.tensor import detach_all
 
 # J_BODY = len(MANO_JOINTS) - 1  # no root
@@ -66,8 +65,6 @@ class Params(nn.Module):
         for name in names:
             self._set_param_grad(name, True)
 
-        Logger.log("Set parameter grads:")
-        Logger.log(
             {name: getattr(self, name).requires_grad for name in self.param_names}
         )
 
@@ -135,7 +132,6 @@ class CameraParams(Params):
         returns (T, 3, 3), (T, 3)
         """
         cam_R, cam_t = self._cam_R, self._cam_t
-        print('get_extrinsics')
         if self.opt_cams:
             raise ValueError
             print('self.opt_cams:', self.opt_cams)

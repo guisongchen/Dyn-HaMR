@@ -7,7 +7,6 @@ import torch.nn as nn
 from geometry.rotation import rotation_matrix_to_angle_axis
 from geometry import camera as cam_util
 from optim.bio_loss import BMCLoss
-from util.logger import Logger
 from typing import List, Tuple, NewType
 
 Tensor = NewType('Tensor', torch.Tensor)
@@ -340,8 +339,6 @@ class StageLoss(nn.Module):
 
     def set_loss_weights(self, loss_weights):
         self.loss_weights = loss_weights
-        Logger.log("Stage loss weights set to:")
-        Logger.log(self.loss_weights)
 
 
 class RootLoss(StageLoss):
@@ -708,7 +705,6 @@ class Points3DLoss(nn.Module):
 
         robust_choices = ["none", "bisquare", "gm"]
         if robust_loss not in robust_choices:
-            Logger.log(
                 "Not a valid robust loss: %s. Please use %s"
                 % (robust_loss, str(robust_choices))
             )
