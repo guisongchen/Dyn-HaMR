@@ -28,7 +28,7 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
     B = len(dataset)
     T = dataset.seq_len
     loader = DataLoader(dataset, batch_size=B, shuffle=False)
-    device = get_device(dev_id)
+    device = get_device()
     obs_data = move_to(next(iter(loader)), device)
 
     # load models
@@ -252,7 +252,7 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
     T = dataset.seq_len
     loader = DataLoader(dataset, batch_size=B, shuffle=False)
 
-    device = get_device(dev_id)
+    device = get_device()
     obs_data = move_to(next(iter(loader)), device)
     cam_data = dataset.get_camera_data()
 
