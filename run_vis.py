@@ -15,7 +15,6 @@ from optim.output import (
     save_input_frames,
     save_input_poses,
 )
-from util.loaders import load_config_from_log, resolve_cfg_paths
 from util.tensor import get_device, move_to, detach_all, to_torch
 from vis.output import prep_result_vis, animate_scene, make_video_grid_2x2
 from vis.tools import vis_keypoints
@@ -31,9 +30,7 @@ def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
     device = get_device()
     obs_data = move_to(next(iter(loader)), device)
 
-    # load models
-    cfg = resolve_cfg_paths(cfg)
-    # Instantiate MANO model
+    cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
     mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
     print('initializing MANO model with cfgs:', mano_cfg, 'B*T', B*T)
     hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
@@ -256,9 +253,7 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
     obs_data = move_to(next(iter(loader)), device)
     cam_data = dataset.get_camera_data()
 
-    # load models
-    cfg = resolve_cfg_paths(cfg)
-    # Instantiate MANO model
+    cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
     mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
     print('initializing MANO model with cfgs:', mano_cfg, 'B*T', B*T)
     hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
@@ -376,97 +371,4 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
     return save_paths_all
 
 
-def visualize_log(log_dir, dev_id, phases, save_dir=None, **kwargs):
-    print(log_dir)
-    cfg = load_config_from_log(log_dir)
-    print(cfg)
-    print(cfg.data)
-    print(cfg.data.sources)
 
-    # make sure we get all necessary inputs
-    dataset = get_dataset_from_cfg(cfg)
-    if len(dataset) < 1:
-        print(f"No tracks in dataset, skipping")
-        return
-
-    run_vis(cfg, dataset, log_dir, dev_id, phases=phases, save_dir=save_dir, **kwargs)
-
-
-def launch_vis(i, args):
-    log_dir = args.log_dirs[i]
-    dev_id = args.gpus[i % len(args.gpus)]
-    os.environ["EGL_DEVICE_ID"] = str(dev_id)
-    os.environ["PYOPENGL_PLATFORM"] = "egl"
-
-    if args.save_root is not None:
-        path_name = log_dir.split(args.log_root)[-1].strip("/")
-        exp_name = "-".join(path_name.split("/")[:2])
-        save_dir = f"{args.save_root}/{exp_name}"
-        os.makedirs(save_dir, exist_ok=True)
-
-    print('args.save_root: ', args.save_root)
-    visualize_log(
-        log_dir,
-        dev_id,
-        phases=args.phases,
-        save_dir=save_dir,
-        overwrite=args.overwrite,
-        accumulate=args.accumulate,
-        render_kps=args.render_kps,
-        render_layers=args.render_layers,
-        render_views=args.render_views,
-        save_frames=args.save_frames,
-        make_grid=args.grid,
-    )
-
-
-def main(args):
-    """
-    visualize all runs in root
-    """
-    OmegaConf.register_new_resolver("eval", eval)
-    log_dirs = []
-    for root, subd, files in os.walk(args.log_root):
-        if ".hydra" in subd:
-            log_dirs.append(root)
-    args.log_dirs = log_dirs
-    print(f"FOUND {len(args.log_dirs)} TO RENDER")
-
-    if len(args.gpus) > 1:
-        from torch.multiprocessing import Pool
-
-        torch.multiprocessing.set_start_method("spawn")
-
-        with Pool(processes=len(args.gpus)) as pool:
-            res = pool.starmap(
-                launch_vis, [(i, args) for i in range(len(args.log_dirs))]
-            )
-        return
-
-    for i in range(len(args.log_dirs)):
-        launch_vis(i, args)
-
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--log_root", required=True)
-    parser.add_argument("--save_root", default='./')
-    parser.add_argument("--phases", nargs="*", default=["smooth_fit"])
-    parser.add_argument("--gpus", nargs="*", default=[0])
-    parser.add_argument(
-        "-rv",
-        "--render_views",
-        nargs="*",
-        default=["src_cam", "front", "above", "side"],
-    )
-    parser.add_argument("-g", "--grid", action="store_true")
-    parser.add_argument("-rl", "--render_layers", action="store_true")
-    parser.add_argument("-kp", "--render_kps", action="store_true")
-    parser.add_argument("-sf", "--save_frames", action="store_true")
-    parser.add_argument("-ra", "--accumulate", action="store_true")
-    parser.add_argument("-y", "--overwrite", action="store_true")
-    args = parser.parse_args()
-
-    main(args)
