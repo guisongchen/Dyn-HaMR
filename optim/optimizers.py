@@ -103,10 +103,17 @@ class StageOptimizer(object):
 
         Logger.log(f"OPTIMIZING {self.name} FOR {num_iters} ITERATIONS")
 
-        for i in range(num_iters):
-            self.cur_step = i
+        self._obs_data = obs_data
 
-            self.optim_step(obs_data)
+        def closure():
+            self.optim.zero_grad()
+            loss, _, _ = self.forward_pass(self._obs_data)
+            self.cur_loss = loss.detach().cpu().item()
+            loss.backward()
+            return loss
+
+        for i in range(num_iters):
+            self.optim.step(closure)
 
             if np.isnan(self.cur_loss):
                 raise ValueError
@@ -114,16 +121,6 @@ class StageOptimizer(object):
         self.cur_step = num_iters
         self.save_results(res_dir, seq_name)
         self.vis_result(res_dir, obs_data, vis)
-
-    def optim_step(self, obs_data):
-        def closure():
-            self.optim.zero_grad()
-            loss, _, _ = self.forward_pass(obs_data)
-            self.cur_loss = loss.detach().cpu().item()
-            loss.backward()
-            return loss
-
-        self.optim.step(closure)
 
 
 class RootOptimizer(StageOptimizer):
