@@ -1,31 +1,20 @@
 import os
 import glob
-import typing
 
 import imageio
 import numpy as np
 import json
 
 import torch
-import torch.nn.functional as F
 from torch.utils.data import Dataset
 
 from body_model import MANO_JOINTS
-assert len(MANO_JOINTS) == 16
-import time
+assert len(MANO_JOINTS) == 16, f"Expected 16 MANO joints, got {len(MANO_JOINTS)}"
 
-from geometry.camera import invert_camera
-
-from .tools import read_keypoints, read_mask_path, load_mano_preds, load_keypoints_with_interp
+from .tools import load_mano_preds, load_keypoints_with_interp
 from .vidproc import verify_cameras, verify_frames, verify_tracks
 
 
-"""
-Define data-related constants
-"""
-# DEFAULT_GROUND = np.array([0.0, -1.0, 0.0, -0.5])
-
-# XXX: TEMPORARY CONSTANTS
 SHOT_PAD = 0
 MIN_SEQ_LEN = 10
 MAX_NUM_TRACKS = 12
@@ -38,10 +27,7 @@ def get_dataset_from_cfg(cfg):
     if not args.use_cams:
         args.sources.cameras = ""
 
-    print("DATA SOURCES", args.sources)
-    a = time.time()
     check_data_sources(args, cfg)
-    print('end of check_data_sources, time: ', time.time() - a)
 
     return MultiPeopleDataset(
         args.sources,
@@ -65,7 +51,7 @@ def check_data_sources(args, cfg):
 class MultiPeopleDataset(Dataset):
     def __init__(
         self,
-        data_sources: typing.Dict,
+        data_sources: dict,
         seq_name,
         tid_spec="all",
         shot_idx=0,
@@ -112,18 +98,14 @@ class MultiPeopleDataset(Dataset):
             track_lens = [
                 len(list(filter(os.path.isfile, paths))) for paths in track_paths
             ]
-            print("raw TRACK IDS and LENGTHS", track_ids, track_lens)
             track_ids = [
                 track_ids[i]
-                for i in range(len(track_lens))# np.argsort(track_lens)[::-1]
+                for i in range(len(track_lens))
                 if track_lens[i] > MIN_TRACK_LEN
             ]
-            print("TRACK LENGTHS", track_ids, track_lens)
             track_ids = track_ids[:n_tracks]
         else:
             track_ids = [f"{int(tid):03d}" for tid in tid_spec.split("-")]
-
-        print("TRACK IDS", track_ids)
 
         self.track_ids = track_ids
         self.n_tracks = len(track_ids)
@@ -148,7 +130,6 @@ class MultiPeopleDataset(Dataset):
 
         eidx = max(eidx + 1, 0)
         sidx = min(sidx, eidx)
-        print("START", sidx, "END", eidx)
         self.start_idx = sidx
         self.end_idx = eidx
         self.seq_len = eidx - sidx
@@ -206,15 +187,10 @@ class MultiPeopleDataset(Dataset):
             ]
             # (T, J, 3) (x, y, conf) - with interpolation for missing frames
             joints2d_data = load_keypoints_with_interp(kp_paths, interp=interp_input)
-            # print('joints2d_data: ', joints2d_data.shape)
-            # print('joints2d_data[:, :, [2]]: ', np.unique(joints2d_data[:, :, [2]]))
-            # raise ValueError
-            # Discard bad ViTPose detections
             joints2d_data[:, :, 2] = 1.0
             joints2d_data[
                 np.repeat(joints2d_data[:, :, [2]] < MIN_KEYP_CONF, 3, axis=2)
             ] = 0
-            # Set all confidence values to 1.0 for optimization
             data_out["joints2d"].append(joints2d_data)
 
             # load single image mano predictions
@@ -225,17 +201,11 @@ class MultiPeopleDataset(Dataset):
                 pred_paths, tid=tid, interp=interp_input
             )
 
-            n_joints = len(MANO_JOINTS) - 1 # 15
             data_out["init_body_pose"].append(pose_init)
             data_out["init_body_shape"].append(betas_init)
             data_out["init_root_orient"].append(orient_init)
             data_out["init_trans"].append(trans_init)
             data_out['is_right'].append(is_right)
-            
-            # DEBUG: Print hand type for each track
-            print(f"DEBUG: Track {i} (tid={tid}): is_right={is_right[0] if len(is_right) > 0 else 'empty'}, {len(pred_paths)} frames")
-
-            # data_out["floor_plane"].append(DEFAULT_GROUND[:3] * DEFAULT_GROUND[3:])
 
         self.data_dict = data_out
 
@@ -273,12 +243,7 @@ class MultiPeopleDataset(Dataset):
             self.data_dict["track_interval"][idx]
         ).int()
 
-        print(len(self.track_ids), self.track_ids[idx], obs_data["is_right"].shape, obs_data["seq_interval"].shape)
-
         obs_data["track_id"] = int(self.track_ids[idx])
-        # print(self.track_ids[idx], obs_data["is_right"])
-        # print(self.track_ids[idx] == obs_data["is_right"])
-        # is_right should be constant across time for each track
         assert torch.all(obs_data["is_right"] == obs_data["is_right"][0]), "is_right should be constant"
         assert int(self.track_ids[idx]) == int(obs_data["is_right"][0]), f"Track ID {self.track_ids[idx]} != is_right {obs_data['is_right'][0]}"
         obs_data["seq_name"] = self.seq_name
@@ -320,8 +285,6 @@ class CameraData(object):
             eidx += data_len + 1
 
         self.sidx, self.eidx = sidx + data_start, eidx + data_start
-        print(self.sidx, self.eidx, data_start, data_end, data_interval, track_interval)
-#
         self.seq_len = self.eidx - self.sidx
 
         self.load_data()
@@ -335,16 +298,10 @@ class CameraData(object):
             cam_R, cam_t, intrins, width, height = load_cameras_npz(fpath, self.seq_len)
             scale = img_w / width
             self.intrins = scale * intrins[sidx:eidx]
-            # move first camera to origin
-            #             R0, t0 = invert_camera(cam_R[sidx], cam_t[sidx])
-            #             self.cam_R = torch.einsum("ij,...jk->...ik", R0, cam_R[sidx:eidx])
-            #             self.cam_t = t0 + torch.einsum("ij,...j->...i", R0, cam_t[sidx:eidx])
-#             t0 = -cam_t[sidx:eidx].mean(dim=0) + torch.randn(3) * 0.1
             t0 = -cam_t[sidx:sidx+1] + torch.randn(3) * 0.1
             self.cam_R = cam_R[sidx:eidx]
             self.cam_t = cam_t[sidx:eidx] - t0
         else:
-            # raise ValueError
             default_focal = 0.5 * (img_h + img_w)
             self.intrins = torch.tensor(
                 [default_focal, default_focal, img_w / 2, img_h / 2]
@@ -353,16 +310,12 @@ class CameraData(object):
             self.cam_R = torch.eye(3)[None].repeat(self.seq_len, 1, 1)
             self.cam_t = torch.zeros(self.seq_len, 3)
 
-        print("CAMERA DATA", self.cam_R.shape, self.cam_t.shape, self.intrins[0])
-
     def world2cam(self):
         return self.cam_R, self.cam_t
 
     def cam2world(self):
-        print('dataset.py, cam2world: ', self.cam_R)
         R = self.cam_R.transpose(-1, -2)
         t = -torch.einsum("bij,bj->bi", R, self.cam_t)
-        print('dataset.py, cam2world: ', R)
         return R, t
 
     def as_dict(self):
