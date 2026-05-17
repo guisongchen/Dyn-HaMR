@@ -72,14 +72,10 @@ def run_opt(cfg, dataset, out_dir, device):
         {k: wts[i] for k, wts in all_loss_weights.items()} for i in range(N_STAGES)
     ]
 
-    # load models
     cfg = resolve_cfg_paths(cfg)
     cfg.paths.base_dir = os.path.abspath(os.path.dirname(__file__))
-    paths = cfg.paths
-    # Instantiate MANO model
-    mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
-    print('initializing MANO model with cfgs:', mano_cfg)
-    hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
+    mano_cfg = {k.lower(): v for k, v in dict(cfg.MANO).items()}
+    hand_model = MANO(batch_size=B * T, pose2rot=True, **mano_cfg).to(device)
 
     ################################################################
     ######################## optimization ##########################
