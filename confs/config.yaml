@@ -50,7 +50,7 @@ HMP:
   exp_name: None
 
 fps: 30
-log_root: ../outputs/logs
+log_root: outputs/logs
 log_dir: ${log_root}/${data.type}-${data.split}
 exp_name: ${now:%Y-%m-%d}
 temporal_smooth: True

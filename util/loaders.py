@@ -13,7 +13,7 @@ import torch
 # from body_model import HandModel
 
 
-ROOT_DIR = os.path.abspath(f"{__file__}/../../../")
+ROOT_DIR = os.path.abspath(f"{__file__}/../../")
 
 
 def load_config_from_log(log_dir):

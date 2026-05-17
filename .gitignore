@@ -153,4 +153,4 @@ dmypy.json
 
 demo_data/
 smooth_fit/
-.claude/*.mp4
+.claude/

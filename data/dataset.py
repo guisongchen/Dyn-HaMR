@@ -18,7 +18,7 @@ from util.logger import Logger
 from geometry.camera import invert_camera
 
 from .tools import read_keypoints, read_mask_path, load_mano_preds, load_keypoints_with_interp
-from .vidproc import preprocess_cameras, preprocess_frames, preprocess_tracks
+from .vidproc import verify_cameras, verify_frames, verify_tracks
 
 
 """
@@ -72,16 +72,9 @@ def get_data_source(source):
 
 
 def check_data_sources(args, cfg):
-    print()
-    a = time.time()
-    if args.type == "video":
-        preprocess_frames(args.sources.images, args.src_path, **args.frame_opts)
-    b = time.time()
-    preprocess_tracks(cfg.datatype, args.sources.images, args.sources.tracks, args.sources.shots, gpu=cfg.gpu)
-    c = time.time()
-    preprocess_cameras(args, overwrite=args.get("overwrite_cams", False))
-    d = time.time()
-    print('frame, hand track, slam camera: ', b-a, c-b, d-c)
+    verify_frames(args.sources.images)
+    verify_tracks(args.sources.tracks)
+    verify_cameras(args.sources.cameras)
 
 
 class MultiPeopleDataset(Dataset):
