@@ -28,7 +28,6 @@ class StageOptimizer(object):
         lr=1.0,
         lbfgs_max_iter=20,
         vis_every=-1,
-        max_chunk_steps=10,
         **kwargs,
     ):
         Logger.log(f"INITIALIZING OPTIMIZER {name} for {param_names}")
@@ -42,16 +41,9 @@ class StageOptimizer(object):
         )
 
         self.vis_every = vis_every
-        self.max_chunk_steps = max_chunk_steps
 
         self.cur_step = 0
-
-        self.add_chunk = 0
         self.cur_loss = 0
-        self.prev_loss = np.inf
-        self.last_updated = 0
-        self.reached_max = False
-        self.reached_max_iter = -1
 
     def set_opt_vars(self, param_names):
         Logger.log(f"Set param names: {param_names}")
@@ -105,7 +97,6 @@ class StageOptimizer(object):
 
     def run(self, obs_data, num_iters, out_dir, vis=None):
         self.cur_step = 0
-        self.loss.cur_step = 0
         res_dir = os.path.join(out_dir, self.name)
         os.makedirs(res_dir, exist_ok=True)
         seq_name = obs_data["seq_name"][0]
@@ -114,29 +105,11 @@ class StageOptimizer(object):
 
         for i in range(num_iters):
             self.cur_step = i
-            self.loss.cur_step = i
 
             self.optim_step(obs_data)
 
             if np.isnan(self.cur_loss):
                 raise ValueError
-
-            if self.reached_max and self.reached_max_iter < 0:
-                self.reached_max_iter = i - 1
-            if self.reached_max and i - self.reached_max_iter >= self.max_chunk_steps:
-                break
-
-            loss_change = self.prev_loss - self.cur_loss
-            if self.last_updated == i - 1 and loss_change == 0:
-                break
-            if (
-                (self.cur_loss < 0 and loss_change < 100)
-                or (i - self.last_updated >= self.max_chunk_steps)
-                or (loss_change < 20 and i - self.last_updated > 5)
-            ):
-                self.add_chunk = self.add_chunk + 1
-                self.last_updated = i
-            self.prev_loss = self.cur_loss
 
         self.cur_step = num_iters
         self.save_results(res_dir, seq_name)
