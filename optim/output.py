@@ -2,7 +2,6 @@ import os
 import imageio
 import glob
 import json
-import subprocess
 
 import numpy as np
 import torch
@@ -17,7 +16,6 @@ def get_results_paths(res_dir):
     returns a dict of iter to result path
     """
     res_files = sorted(glob.glob(f"{res_dir}/*_results.npz"))
-    print(f"found {len(res_files)} results in {res_dir}")
 
     path_dict = {}
     for res_file in res_files:
@@ -45,20 +43,12 @@ def load_result(res_path_dict):
 def save_initial_predictions(model, out_dir, seq_name):
     os.makedirs(out_dir, exist_ok=True)
     with torch.no_grad():
-        print('go into get_optim_result from output.py save_initial_predictions')
         pred_dict = model.get_optim_result()
         pred_dict = move_to(detach_all(pred_dict), "cpu")
 
     for name, results in pred_dict.items():
         out_path = f"{out_dir}/{seq_name}_{0:06d}_init_{name}_results.npz"
         np.savez(out_path, **results)
-        # print('cam_R in save_initial_predictions: ', results['cam_R'].shape, results['cam_R'])
-        # print((results['cam_R'][0] == results['cam_R'][1]).all())
-        # print((results['cam_R'][1] == results['cam_R'][2]).all())
-        # print((results['cam_R'][2] == results['cam_R'][3]).all())
-        # print((results['cam_R'][3] == results['cam_R'][4]).all())
-        # print((results['cam_R'][4] == results['cam_R'][5]).all())
-        # print((results['cam_R'][5] == results['cam_R'][6]).all())
 
 
 def save_input_poses(dataset, out_dir, seq_name, name="phalp"):
@@ -70,29 +60,8 @@ def save_input_poses(dataset, out_dir, seq_name, name="phalp"):
         "trans": np.stack(d["init_trans"], axis=0),
         "root_orient": np.stack(d["init_root_orient"], axis=0),
     }
-    print({k: v.shape for k, v in res.items()})
     out_path = f"{out_dir}/{seq_name}_{0:06d}_{name}_world_results.npz"
     np.savez(out_path, **res)
-
-
-def save_input_frames_ffmpeg(dataset, out_dir, name="input", fps=30, overwrite=False):
-    vid_path = f"{out_dir}/{name}.mp4"
-    if not overwrite and os.path.isfile(vid_path):
-        return
-
-    list_path = f"{out_dir}/src_paths.txt"
-    with open(list_path, "w") as f:
-        f.write("\n".join([f"file '{p}'" for p in dataset.sel_img_paths]))
-
-    filter_str = f"-framerate {fps} -vf 'format=yuv420p'"
-    cmd = (
-        f"ffmpeg -loglevel error -f concat -safe 0 "
-        f"-i {list_path} -c:v libx264 {filter_str} {vid_path} -y"
-    )
-    print(cmd)
-    subprocess.call(cmd, shell=True, stdin=subprocess.PIPE)
-    print(f"SAVED {len(dataset.sel_img_paths)} INPUT FRAMES TO {vid_path}")
-    return vid_path
 
 
 def save_input_frames(dataset, vid_path, fps=30, overwrite=False):
@@ -103,7 +72,6 @@ def save_input_frames(dataset, vid_path, fps=30, overwrite=False):
     for path in dataset.sel_img_paths:
         writer.append_data(imageio.imread(path))
     writer.close()
-    print(f"SAVED {len(dataset.sel_img_paths)} INPUT FRAMES TO {vid_path}")
     return vid_path
 
 
@@ -148,7 +116,6 @@ def save_track_info(dataset, out_dir):
 
     with open(f"{out_dir}/track_info.json", "w") as f:
         json.dump(out_dict, f)
-    print("SAVED TRACK INFO")
 
 
 def load_camera_json(path):
