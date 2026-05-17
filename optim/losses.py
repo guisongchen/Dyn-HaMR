@@ -1084,47 +1084,6 @@ class GeneralContactLoss(nn.Module):
                 interior_v1 = winding_numbers(v1, t2l).ge(0.99)
                 interior_v2 = winding_numbers(v2, t1l).ge(0.99)
 
-            # visu results 
-            # if True:
-            #     import trimesh 
-            #     mesh = trimesh.Trimesh(
-            #         vertices=v2l[0].detach().cpu().numpy(), 
-            #         faces=self.l_faces.cpu().numpy().astype(np.int32),
-            #     )
-            #     col = 255 * np.ones((778, 4))
-            #     inside_idx = torch.where(interior_v2[0])[0].detach().cpu().numpy()
-            #     col[inside_idx] = [0, 255, 0, 255]
-            #     mesh.visual.vertex_colors = col
-            #     _ = mesh.export('/vol/bitbucket/zy3023/code/hand/slam-hand//interior_v2_lowres.obj')
-
-            #     vmc = v1 # self.close_mouth(v1)
-            #     mesh = trimesh.Trimesh(vertices=vmc[0].detach().cpu().numpy(), faces=self.l_faces.cpu().numpy())
-            #     col = 255 * np.ones((778, 4))
-            #     inside_idx = torch.where(interior_v1[0])[0].detach().cpu().numpy()
-            #     col[inside_idx] = [255, 0, 0, 255]
-            #     mesh.visual.vertex_colors = col
-            #     _ = mesh.export('/vol/bitbucket/zy3023/code/hand/slam-hand//interior_v1_highres.obj')
-
-            #     # Other direction
-            #     mesh = trimesh.Trimesh(
-            #         vertices=v1l[0].detach().cpu().numpy(), 
-            #         faces=self.r_faces.cpu().numpy().astype(np.int32),
-            #     )
-            #     col = 255 * np.ones((778, 4))
-            #     inside_idx = torch.where(interior_v1[0])[0].detach().cpu().numpy()
-            #     col[inside_idx] = [0, 255, 0, 255]
-            #     mesh.visual.vertex_colors = col
-            #     _ = mesh.export('/vol/bitbucket/zy3023/code/hand/slam-hand//interior_v1_lowres.obj')
-
-            #     vmc = v2 # self.close_mouth(v2)
-            #     mesh = trimesh.Trimesh(vertices=vmc[0].detach().cpu().numpy(), faces=self.r_faces.cpu().numpy())
-            #     col = 255 * np.ones((778, 4))
-            #     inside_idx = torch.where(interior_v2[0])[0].detach().cpu().numpy()
-            #     col[inside_idx] = [255, 0, 0, 255]
-            #     mesh.visual.vertex_colors = col
-            #     _ = mesh.export('/vol/bitbucket/zy3023/code/hand/slam-hand//interior_v2_highres.obj')
-            #     exit()
-
             batch_losses = []
             for bidx in range(v1.shape[0]):
                 if not wn_batch:

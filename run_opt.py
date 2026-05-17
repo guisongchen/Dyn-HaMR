@@ -32,6 +32,9 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import time
 
+import sys
+sys.path.append('HMP/')
+
 N_STAGES = 3
 
 def set_seed(seed=42):
@@ -79,7 +82,7 @@ def run_opt(cfg, dataset, out_dir, device):
 
     # load models
     cfg = resolve_cfg_paths(cfg)
-    cfg.paths.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
+    cfg.paths.base_dir = os.path.abspath(os.path.dirname(__file__))
     paths = cfg.paths
     Logger.log("Loading hand model")
     # Instantiate MANO model

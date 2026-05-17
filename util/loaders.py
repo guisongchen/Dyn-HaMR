@@ -27,7 +27,7 @@ def load_config_from_log(log_dir):
 def resolve_cfg_paths(cfg):
     paths = cfg.paths
     for name, rel_path in paths.items():
-        if rel_path.startswith("/"):  # absolute path
+        if rel_path is None or rel_path == "None" or rel_path.startswith("/"):
             continue
         paths[name] = os.path.join(ROOT_DIR, rel_path)
     print("RESOLVED PATHS", paths)

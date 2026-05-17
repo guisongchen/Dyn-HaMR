@@ -259,14 +259,6 @@ class BaseSceneModel(nn.Module):
         #     print(os.path.join('./mesh/', f'{str(t).zfill(6)}_1.obj'))
 
         #################################
-        # print(self.params.root_orient.shape, self.params.init_body_pose.shape, body_pose.shape, self.params.trans.shape, self.params.betas.shape)
-        # hand_model = mano.load(
-        #     model_path= '/vol/bitbucket/zy3023/code/hand/slam-hand/_DATA/data/mano',# '/vol/bitbucket/zy3023/code/hand/slam-hand/VPoser/pretrained/Vposer_right_mirrored',
-        #     is_right=True,
-        #     num_pca_comps=45,
-        #     batch_size=1,
-        #     flat_hand_mean=False,
-        # ).cuda()
 
         # output = hand_model(
         #     betas=self.params.betas[0][None].repeat(180,1),

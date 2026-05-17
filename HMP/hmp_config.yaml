@@ -17,7 +17,7 @@ data:
   up: z
 
 root: None
-dataset_dir: _DATA/hmp_model
+dataset_dir: hmp_model
 dtw_loss: true
 geodesic_loss: true
 
@@ -70,7 +70,7 @@ opt_betas: false
 output_trans: false
 overlap_len: 16
 pretrained_gmp: false
-save_dir: _DATA/hmp_model
+save_dir: hmp_model
 
 scheduler:
   gamma: 0.7

@@ -21,7 +21,7 @@ openpose_skeleton = [-1, 0, 1, 2, 3, 0, 5, 6, 7, 0, 9, 10, 11, 0, 13, 14, 15, 0,
 
 RIGHT_WRIST_BASE_LOC = torch.tensor([[0.0957, 0.0064, 0.0062]])
 LEFT_WRIST_BASE_LOC = torch.tensor([[-0.0957, 0.0064, 0.0062]])
-MANO_RH_DIR = "./data/body_models/mano/MANO_RIGHT.pkl"
+MANO_RH_DIR = "./mano/MANO_RIGHT.pkl"
 
 
 def convert_pred_to_full_img_cam(pare_cam, bbox_height, bbox_center,
@@ -932,8 +932,19 @@ class BMCLoss:
         self.lambda_bl = lambda_bl
         self.lambda_rb = lambda_rb
         self.lambda_a = lambda_a
+        self._loaded = False
 
-        self.lp = f"{os.path.dirname(__file__)}/../../_DATA/BMC"
+        self.REF_BONE_LINK = (0, 9)  # mid mcp
+
+        self.ID_ROOT_bone = np.array([0, 4, 8, 12, 16])
+        self.ID_PIP_bone = np.array([1, 5, 9, 13, 17])
+        self.ID_DIP_bone = np.array([2, 6, 10, 14, 18])
+        self.ID_TIP_bone = np.array([3, 7, 11, 15, 19])
+
+    def _ensure_loaded(self):
+        if self._loaded:
+            return
+        self.lp = f"{os.path.dirname(__file__)}/../BMC"
 
         self.bone_len_max = np.load(os.path.join(self.lp, "bone_len_max.npy"))
         self.bone_len_min = np.load(os.path.join(self.lp, "bone_len_min.npy"))
@@ -981,24 +992,15 @@ class BMCLoss:
         ]
 
         self.JOINT_ROOT_IDX = 9
-
-        self.REF_BONE_LINK = (0, 9)  # mid mcp
-
-        # bone indexes in 20 bones setting
-        self.ID_ROOT_bone = np.array([0, 4, 8, 12, 16])  # ROOT_bone from wrist to MCP
-        self.ID_PIP_bone = np.array([1, 5, 9, 13, 17])  # PIP_bone from MCP to PIP
-        self.ID_DIP_bone = np.array([2, 6, 10, 14, 18])  # DIP_bone from  PIP to DIP
-        self.ID_TIP_bone = np.array([3, 7, 11, 15, 19])  # TIP_bone from DIP to TIP
+        self._loaded = True
 
     def compute_loss(self, joints):
         '''
-
         Args:
             joints: B*21*3
-
         Returns:
-
         '''
+        self._ensure_loaded()
         batch_size = joints.shape[0]
         final_loss = torch.Tensor([0]).cuda()
 

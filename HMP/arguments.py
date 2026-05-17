@@ -21,7 +21,7 @@ class Arguments:
         self.smpl.joint_num = 16 # len(self.smpl.joints_to_use)
         self.smpl.joints_to_use = np.array(self.smpl.joints_to_use)
         self.smpl.joints_to_use = np.arange(0, 63).reshape((-1, 3))[self.smpl.joints_to_use].reshape(-1)
-        self.smpl.smpl_body_model = os.path.join(base_dir, '_DATA/data/mano')
+        self.smpl.smpl_body_model = os.path.join(base_dir, 'mano')
 
         self.filename = os.path.splitext(filename)[0]
         with open(os.path.join(config_path, filename), 'r') as f:

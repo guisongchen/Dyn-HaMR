@@ -722,22 +722,32 @@ def multi_stage_opt(opt, device, obs_data, res_dict, hand_model, config_f, exp_s
         rhand_orient_padded, rhand_betas_padded, rhand_trans_padded, rhand_pose_padded, is_right = \
                             res_dict['root_orient'][idx], res_dict['betas'][idx], res_dict['trans'][idx], res_dict['pose_body'][idx], res_dict['is_right'][idx]
 
-        cam_center = torch.tensor(res_dict['intrins'][2:][None]).repeat(128, 1)  # (T, 2)
-        cam_f = torch.tensor(res_dict['intrins'][:2][None]).repeat(128, 1)  # (T, 2)
+        clip_len = args.data.clip_length
+        rhand_orient_padded = rhand_orient_padded[:clip_len]
+        rhand_trans_padded = rhand_trans_padded[:clip_len]
+        rhand_pose_padded = rhand_pose_padded[:clip_len]
+        is_right = is_right[:clip_len]
+        keyp2d = obs_data['joints2d'][idx][:clip_len]
+        vis_mask = obs_data.get('vis_mask', obs_data.get('keyp2d_conf', None))
+        if vis_mask is not None:
+            vis_mask = vis_mask[idx][:clip_len]
+
+        cam_center = torch.tensor(res_dict['intrins'][2:][None]).repeat(clip_len, 1)  # (T, 2)
+        cam_f = torch.tensor(res_dict['intrins'][:2][None]).repeat(clip_len, 1)  # (T, 2)
 
         init_dict = {
-                    "keyp2d": obs_data['joints2d'][idx],
+                    "keyp2d": keyp2d,
                     "betas": rhand_betas_padded,
                     "trans": rhand_trans_padded,
                     "root_orient": rhand_orient_padded,
                     "poses": rhand_pose_padded.reshape(-1, 45),
-                    "cam_R": res_dict['cam_R'][idx],
-                    "cam_t": res_dict['cam_t'][idx],
+                    "cam_R": res_dict['cam_R'][idx][:clip_len],
+                    "cam_t": res_dict['cam_t'][idx][:clip_len],
                     "img_dir":abs_video_path,
-                    "is_right": res_dict['is_right'][idx],
+                    "is_right": is_right,
                     "cam_f": cam_f,
                     "cam_center": cam_center,
-                    'vis_mask': obs_data['vis_mask'][idx]
+                    'vis_mask': vis_mask if vis_mask is not None else obs_data['vis_mask'][idx][:clip_len]
                     }
 
         # save the results, expand the length by padding so that it matches the number of frames in the video	
@@ -1598,8 +1608,8 @@ def fitting_prior(obs_data, res_dict, hand_model, opt, data_args, out_dir, devic
     args.vid_path = opt.HMP.vid_path
 
     args.root = opt.paths.base_dir
-    args.dataset_dir = os.path.join(opt.paths.base_dir, '_DATA/hmp_model')
-    args.save_dir = os.path.join(opt.paths.base_dir, '_DATA/hmp_model')
+    args.dataset_dir = os.path.join(opt.paths.base_dir, opt.HMP.data_dir)
+    args.save_dir = os.path.join(opt.paths.base_dir, opt.HMP.model_dir)
 
     init_method = args.init_method if hasattr(args, 'init_method') else "pymafx"
     assert init_method in ["metro", "pymafx"]

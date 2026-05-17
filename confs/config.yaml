@@ -12,7 +12,7 @@ model:
 overwrite: False
 run_opt: True
 run_vis: True
-run_prior: False
+run_prior: True
 datatype: ${data.video_dir}
 vis:
   phases:
@@ -32,15 +32,15 @@ vis:
   render_keypoints: False  # Overlay GT 2D keypoints on source camera view
 
 MANO:
-  MODEL_PATH: ${paths.DATA_DIR}
+  MODEL_PATH: ${paths.MANO_DIR}
   GENDER: neutral
   NUM_HAND_JOINTS: 15
-  MEAN_PARAMS: ${paths.DATA_DIR}/mano_mean_params.npz
+  MEAN_PARAMS: ${paths.MANO_DIR}/mano_mean_params.npz
   CREATE_BODY_POSE: FALSE
 
 paths:
-  base_dir: None
-  DATA_DIR: mano
+  base_dir: null
+  MANO_DIR: mano
   vposer: VPoser/pretrained/Vposer_right_mirrored
 
 HMP:
@@ -48,6 +48,8 @@ HMP:
   use_hposer: False
   vid_path: ${data.root}/video/${data.seq}.mp4
   exp_name: None
+  model_dir: hmp_model
+  data_dir: hmp_model
 
 fps: 30
 log_root: outputs/logs
