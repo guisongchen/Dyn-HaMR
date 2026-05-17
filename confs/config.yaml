@@ -36,7 +36,6 @@ MANO:
 paths:
   base_dir: null
   MANO_DIR: mano
-  vposer: VPoser/pretrained/Vposer_right_mirrored
 
 HMP:
   config: hmp_config.yaml

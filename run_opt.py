@@ -25,7 +25,6 @@ from optim.output import (
 )
 from vis.viewer import init_viewer
 from body_model import MANO
-from util.loaders import resolve_cfg_paths
 from util.tensor import get_device, move_to
 
 from run_vis import run_vis
@@ -72,8 +71,8 @@ def run_opt(cfg, dataset, out_dir, device):
         {k: wts[i] for k, wts in all_loss_weights.items()} for i in range(N_STAGES)
     ]
 
-    cfg = resolve_cfg_paths(cfg)
     cfg.paths.base_dir = os.path.abspath(os.path.dirname(__file__))
+    cfg.paths.MANO_DIR = os.path.join(cfg.paths.base_dir, "mano")
     mano_cfg = {k.lower(): v for k, v in dict(cfg.MANO).items()}
     hand_model = MANO(batch_size=B * T, pose2rot=True, **mano_cfg).to(device)
 
