@@ -27,7 +27,7 @@ from util.tensor import get_device, move_to
 from run_vis import run_vis
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 import time
 
 import sys
@@ -149,7 +149,6 @@ def run_opt(cfg, dataset, out_dir, device):
 
 @hydra.main(version_base=None, config_path="confs", config_name="config.yaml")
 def main(cfg: DictConfig):
-    OmegaConf.register_new_resolver("eval", eval)
     print('run_opt.py: ', cfg)
 
     # Set random seed
@@ -159,9 +158,7 @@ def main(cfg: DictConfig):
     print("out_dir", out_dir)
 
     # make sure we get all necessary inputs
-    print("init SOURCES", cfg.data.sources)
     cfg.data.sources = expand_source_paths(cfg.data.sources)
-    print("SOURCES", cfg.data.sources)
 
     dataset = get_dataset_from_cfg(cfg)
     save_track_info(dataset, out_dir)
