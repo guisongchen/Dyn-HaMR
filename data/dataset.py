@@ -12,7 +12,6 @@ from body_model import MANO_JOINTS
 assert len(MANO_JOINTS) == 16, f"Expected 16 MANO joints, got {len(MANO_JOINTS)}"
 
 from .tools import load_mano_preds, load_keypoints_with_interp
-from .vidproc import verify_cameras, verify_frames, verify_tracks
 
 
 SHOT_PAD = 0
@@ -24,11 +23,6 @@ MIN_KEYP_CONF = 0.4
 
 def get_dataset_from_cfg(cfg):
     args = cfg.data
-    if not args.use_cams:
-        args.sources.cameras = ""
-
-    check_data_sources(args, cfg)
-
     return MultiPeopleDataset(
         args.sources,
         args.seq,
@@ -40,12 +34,6 @@ def get_dataset_from_cfg(cfg):
         split_cameras=args.get("split_cameras", True),
     )
 
-
-
-def check_data_sources(args, cfg):
-    verify_frames(args.sources.images)
-    verify_tracks(args.sources.tracks)
-    verify_cameras(args.sources.cameras)
 
 
 class MultiPeopleDataset(Dataset):
