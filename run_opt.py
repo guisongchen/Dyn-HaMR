@@ -137,10 +137,14 @@ def run_opt(cfg, dataset, out_dir, device):
     print('Smooth optimization time: ', c - b)
 
     # HMP
-    if cfg.run_prior and not os.path.exists(os.path.join(out_dir, 'prior')):
+    prior_out = os.path.join(out_dir, 'prior')
+    has_prior_results = os.path.isdir(prior_out) and any(
+        f.endswith('_world_results.npz') for f in os.listdir(prior_out)
+    )
+    if cfg.run_prior and not has_prior_results:
         from HMP.fitting import run_prior
         run_prior(cfg, dataset, out_dir, device, ['smooth_fit'], \
-        obs_data, hand_model, cfg, cfg.data, os.path.join(out_dir, 'prior'))
+        obs_data, hand_model, cfg, cfg.data, prior_out)
     d = time.time()
     print('prior optimization time: ', d-c)
 

@@ -154,9 +154,6 @@ def run_vis(
         elif os.path.isdir(res_dir):
             res_path_dict = get_results_paths(res_dir)
             print(f"FOUND {len(res_path_dict)} results in {res_dir}")
-            if len(res_path_dict) == 0:
-                print(f"No results found in {res_dir}, skipping")
-                continue
             it = sorted(res_path_dict.keys())[-1]
             res = load_result(res_path_dict[it])["world"]
 
