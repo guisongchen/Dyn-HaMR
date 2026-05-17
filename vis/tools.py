@@ -1047,14 +1047,14 @@ def smooth_results(global_orientation, body_pose, body_shape, is_right, cam=None
     filters = {}
     filters[0] = create_OneEuroFilter(smooth_coeff=1)
     filters[1] = create_OneEuroFilter(smooth_coeff=1)
-    # print(global_orientation.shape, body_pose.shape, body_shape.shape, is_right.shape, cam.shape)
+
+    body_pose = body_pose.reshape(body_pose.shape[0], body_pose.shape[1], -1)
 
     for idx in range(len(global_orientation)):
         for time in range(len(global_orientation[0])):
-            # print('!!!!!!!!! running temporal smooth')
             handedness = int(is_right[idx, time])
             global_orientation[idx, time] = smooth_global_rot_matrix(global_orientation[idx, time], filters[handedness]['global_orient'])
-            body_pose[idx, time] = filters[handedness]['poses'].process(body_pose[idx, time].reshape(45)).reshape(15, 3)
+            body_pose[idx, time] = filters[handedness]['poses'].process(body_pose[idx, time].reshape(45)).reshape(-1)
             if cam is not None:
                 cam[idx, time] = filters[handedness]['cam'].process(cam[idx, time])
 

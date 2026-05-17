@@ -893,7 +893,7 @@ def multi_stage_opt(opt, device, obs_data, res_dict, hand_model, config_f, exp_s
     res_dict['trans'] = T_list
     res_dict['latent_pose'] = P_list
     num_hands = len(P_list)
-    res_dict['pose_body'] = P_list.reshape(num_hands, 128, 15, 3)
+    res_dict['pose_body'] = P_list.reshape(num_hands, 128, -1)
     res_dict['betas'] = Be_list
     res_dict['decode_root'] = DR_list
     pred_save_path = os.path.join(args.save_path, os.path.basename(args.vid_path).split('.')[0] + f'_000000_world_results.npz')
