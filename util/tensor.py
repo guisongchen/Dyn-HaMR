@@ -42,9 +42,8 @@ def to_np(obj):
     return obj
 
 
-def get_device(i=0):
-    device = f"cuda:{i}" if torch.cuda.is_available() else "cpu"
-    return torch.device(device)
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def scatter_intervals(tensor, start, end, T=None):

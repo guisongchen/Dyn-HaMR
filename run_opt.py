@@ -164,18 +164,13 @@ def main():
 
     dataset = get_dataset_from_cfg(cfg)
     save_track_info(dataset, out_dir)
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(cfg.get("gpu"))
-    print("CUDA_VISIBLE_DEVICES", os.environ["CUDA_VISIBLE_DEVICES"])
-    device_id = cfg.get("gpu")
 
     if cfg.run_opt:
-        device = get_device(device_id)
+        device = get_device()
         run_opt(cfg, dataset, out_dir, device)
 
     if cfg.run_vis:
-        run_vis(
-            cfg, dataset, out_dir, device_id, **cfg.get("vis", dict())
-        )
+        run_vis(cfg, dataset, out_dir, 0, **cfg.get("vis", dict()))
 
 
 if __name__ == "__main__":

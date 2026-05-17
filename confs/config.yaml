@@ -48,5 +48,4 @@ HMP:
 
 fps: 30
 temporal_smooth: True
-gpu: 0
 is_static: False
