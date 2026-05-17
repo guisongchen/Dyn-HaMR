@@ -59,7 +59,7 @@ def run_opt(cfg, dataset, out_dir, device):
     cam_data = move_to(dataset.get_camera_data(), device)
     print("Batch size (dataset_length), T (dataset.seq_len): ", B, len(dataset), T)
     print("OBS DATA", obs_data.keys())
-    print("CAM DATA", cam_data.keys(), 'cam_R', cam_data['cam_R'])
+    print("CAM DATA", cam_data.keys())
 
     # save cameras
     cam_R, cam_t = dataset.cam_data.cam2world()
@@ -114,13 +114,11 @@ def run_opt(cfg, dataset, out_dir, device):
         )
     print("OPTIMIZER OPTIONS:", opts)
 
-    print('start optimization')
     a = time.time()
     optim = RootOptimizer(base_model, stage_loss_weights, **opts)
     optim.run(obs_data, cfg.optim.root.num_iters, out_dir, vis)
 
     args = cfg.optim.smooth
-    print(args)
     b = time.time()
     print('root optimization time: ', b - a)
     optim = SmoothOptimizer(
@@ -149,7 +147,6 @@ def run_opt(cfg, dataset, out_dir, device):
 
 @hydra.main(version_base=None, config_path="confs", config_name="config.yaml")
 def main(cfg: DictConfig):
-    print('run_opt.py: ', cfg)
 
     # Set random seed
     set_seed(cfg.get('seed', 42))
