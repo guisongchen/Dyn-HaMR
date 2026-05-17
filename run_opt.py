@@ -56,11 +56,7 @@ def run_opt(cfg, dataset, out_dir, device):
 
     obs_data = move_to(next(iter(loader)), device)
     cam_data = move_to(dataset.get_camera_data(), device)
-    print("Batch size (dataset_length), T (dataset.seq_len): ", B, len(dataset), T)
-    print("OBS DATA", obs_data.keys())
-    print("CAM DATA", cam_data.keys())
 
-    # save cameras
     cam_R, cam_t = dataset.cam_data.cam2world()
     intrins = dataset.cam_data.intrins
     save_camera_json(f"cameras.json", cam_R, cam_t, intrins)
