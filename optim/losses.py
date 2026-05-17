@@ -705,10 +705,7 @@ class Points3DLoss(nn.Module):
 
         robust_choices = ["none", "bisquare", "gm"]
         if robust_loss not in robust_choices:
-                "Not a valid robust loss: %s. Please use %s"
-                % (robust_loss, str(robust_choices))
-            )
-            exit()
+            raise ValueError(f"Invalid robust loss: {robust_loss}. Use {robust_choices}")
 
         from utils.chamfer_distance import ChamferDistance
 

@@ -65,9 +65,6 @@ class Params(nn.Module):
         for name in names:
             self._set_param_grad(name, True)
 
-            {name: getattr(self, name).requires_grad for name in self.param_names}
-        )
-
 
 class CameraParams(Params):
     """
