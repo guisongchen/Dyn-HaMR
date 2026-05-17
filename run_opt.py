@@ -1,9 +1,14 @@
 import os
+import sys
+import datetime
 import random
 import numpy as np
+import time
 
 import torch
 from torch.utils.data import DataLoader
+
+from omegaconf import OmegaConf
 
 from data import get_dataset_from_cfg, expand_source_paths
 
@@ -26,12 +31,7 @@ from util.tensor import get_device, move_to
 
 from run_vis import run_vis
 
-import hydra
-from omegaconf import DictConfig
-import time
-
-import sys
-sys.path.append('HMP/')
+sys.path.append(os.path.join(os.path.dirname(__file__), 'HMP'))
 
 N_STAGES = 3
 
@@ -145,16 +145,29 @@ def run_opt(cfg, dataset, out_dir, device):
     print('prior optimization time: ', d-c)
 
 
-@hydra.main(version_base=None, config_path="confs", config_name="config.yaml")
-def main(cfg: DictConfig):
+def load_config():
+    base = os.path.dirname(__file__)
+    cfg = OmegaConf.load(os.path.join(base, "confs/config.yaml"))
+    data_cfg = OmegaConf.load(os.path.join(base, "confs/data/demo_dynhamr.yaml"))
+    optim_cfg = OmegaConf.load(os.path.join(base, "confs/optim.yaml"))
+    return OmegaConf.merge({"data": data_cfg}, optim_cfg, cfg)
 
-    # Set random seed
+
+def main():
+    cfg = load_config()
+
     set_seed(cfg.get('seed', 42))
 
-    out_dir = os.getcwd()
+    out_dir = os.path.abspath(os.path.join(
+        "outputs/logs",
+        f"{cfg.data.type}-{cfg.data.split}",
+        datetime.datetime.now().strftime("%Y-%m-%d"),
+        cfg.data.name,
+    ))
+    os.makedirs(out_dir, exist_ok=True)
+    os.chdir(out_dir)
     print("out_dir", out_dir)
 
-    # make sure we get all necessary inputs
     cfg.data.sources = expand_source_paths(cfg.data.sources)
 
     dataset = get_dataset_from_cfg(cfg)
