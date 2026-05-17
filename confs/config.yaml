@@ -1,5 +1,5 @@
 defaults:
-  - data: HOT3D
+  - data: demo_dynhamr
   - optim
   - _self_
 
