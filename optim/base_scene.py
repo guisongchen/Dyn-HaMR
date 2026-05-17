@@ -84,6 +84,7 @@ class BaseSceneModel(nn.Module):
 
         init_trans_cam = obs_data["init_trans"]  # (B, T, 3)
         init_trans = torch.einsum("tij,btj->bti", R_c2w, init_trans_cam) + t_c2w[None]
+        is_right = obs_data["is_right"]
 
         self.params.set_param("init_body_pose", init_pose)
         self.params.set_param("latent_pose", init_pose_latent)
