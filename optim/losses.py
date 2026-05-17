@@ -1,18 +1,9 @@
-import os
 import math
 import numpy as np
 import cv2
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.distributions import (
-    MixtureSameFamily,
-    Categorical,
-    Normal,
-    MultivariateNormal,
-)
 
-# from body_model import SMPL_JOINTS, SMPL_PARENTS
 from geometry.rotation import rotation_matrix_to_angle_axis
 from geometry import camera as cam_util
 from optim.bio_loss import BMCLoss
@@ -163,7 +154,6 @@ def get_keypoints_rectangle(keypoints: np.array, threshold: float) -> Tuple[floa
     Returns:
         Tuple[float, float, float]: Rectangle width, height and area.
     """
-    # print(keypoints.shape)
     valid_ind = keypoints[:, -1] > threshold
     if valid_ind.sum() > 0:
         valid_keypoints = keypoints[valid_ind][:, :-1]
@@ -342,9 +332,7 @@ def render_openpose(img: np.array,
 class StageLoss(nn.Module):
     def __init__(self, loss_weights, **kwargs):
         super().__init__()
-        self.cur_optim_step = 0
         self.set_loss_weights(loss_weights)
-        print(kwargs)
         self.setup_losses(loss_weights, **kwargs)
 
     def setup_losses(self, *args, **kwargs):
@@ -399,7 +387,6 @@ class RootLoss(StageLoss):
             "joints3d" in pred_data
             and self.loss_weights["bio"] > 0.0
         ):
-            # print('biobiobiobiobiobiobiobiobiobiobiobio')
             cur_loss, _ = self.bio_loss.compute_loss(
                 pred_data["joints3d"], valid_mask
             )
@@ -439,7 +426,6 @@ class RootLoss(StageLoss):
             and "cameras" in pred_data
             and self.loss_weights["joints2d"] > 0.0
         ):
-            # print(4444444444444444444)
             joints2d = cam_util.reproject(
                 pred_data["joints3d_op"], *pred_data["cameras"]
             )
@@ -452,7 +438,6 @@ class RootLoss(StageLoss):
 
         # smooth 3d joint motion
         if self.loss_weights["joints3d_smooth"] > 0.0:
-            # print(55555555555555555555)
             cur_loss = joints3d_smooth_loss(pred_data["joints3d"], valid_mask)
             loss += self.loss_weights["joints3d_smooth"] * cur_loss
             stats_dict["joints3d_smooth"] = cur_loss
@@ -498,7 +483,6 @@ class RootLoss(StageLoss):
             loss += self.loss_weights["depth_constraint"] * cur_loss
             stats_dict["depth_constraint"] = cur_loss
 
-        print(stats_dict)
         return loss, stats_dict
 
 
@@ -576,33 +560,18 @@ class SMPLLoss(RootLoss):
             observed_data, pred_data, valid_mask=valid_mask
         )
 
-        # prior to keep latent pose likely
-        print(f"DEBUG pose_prior check: 'latent_pose' in pred_data = {'latent_pose' in pred_data}, loss_weight = {self.loss_weights.get('pose_prior', 'NOT_FOUND')}")
-        if "latent_pose" in pred_data:
-            print(f"  latent_pose shape: {pred_data['latent_pose'].shape}")
-        if "init_latent_pose" in observed_data:
-            print(f"  init_latent_pose shape: {observed_data['init_latent_pose'].shape}")
-        
         if "latent_pose" in pred_data and self.loss_weights["pose_prior"] > 0.0:
-            # Use initial latent pose from HaMeR as the prior target
             latent_pose_init = observed_data["init_latent_pose"]
             cur_loss = pose_prior_loss(pred_data["latent_pose"], latent_pose_init, valid_mask)
-            print("pose_prior: ", cur_loss, pred_data["latent_pose"][0],latent_pose_init[0])
             loss += self.loss_weights["pose_prior"] * cur_loss
             stats_dict["pose_prior"] = cur_loss
-        else:
-            raise ValueError
 
-        # prior to keep PCA shape likely
         if "betas" in pred_data and self.loss_weights["shape_prior"] > 0.0:
             cur_loss = shape_prior_loss(pred_data["betas"])
             loss += self.loss_weights["shape_prior"] * nsteps * cur_loss
             stats_dict["shape_prior"] = cur_loss
 
-        # inter-penetration loss
         if 'verts3d' in pred_data and self.loss_weights["penetration"] > 0.0:
-            print('???????????????????????????????? inter-penetration loss')
-            # print(pred_data["verts3d"].shape, pred_data['is_right'].shape)
             order = torch.sum(pred_data['is_right'], dim=-1)//pred_data['is_right'].shape[1]
 
             if len(order) > 1:
@@ -620,160 +589,7 @@ class SMPLLoss(RootLoss):
                 loss += self.loss_weights["penetration"] * cur_loss
                 stats_dict["penetration"] = cur_loss
 
-        print(stats_dict)
-        # if 'penetration' in stats_dict.keys():
-        #     if stats_dict['penetration'] == 0:
-        #         print(pred_data)
-        #         print('***************')
-        #         print(observed_data)
-        #         raise ValueError
         return loss, stats_dict
-
-# class MotionLoss(SMPLLoss):
-#     def setup_losses(
-#         self,
-#         loss_weights,
-#         init_motion_prior=None,
-#         **kwargs,
-#     ):
-#         super().setup_losses(loss_weights, **kwargs)
-#         if loss_weights["init_motion_prior"] > 0.0:
-#             self.init_motion_prior_loss = GMMPriorLoss(init_motion_prior)
-
-#     def forward(
-#         self,
-#         observed_data,
-#         pred_data,
-#         cam_pred_data,
-#         nsteps,
-#         valid_mask=None,
-#         init_motion_scale=1.0,
-#     ):
-#         """
-#         For fitting full shape and pose of SMPL with motion prior.
-
-#         pred_data is data pertinent to the canonical prior coordinate frame
-#         cam_pred_data is for the camera coordinate frame
-
-#         loss rather than standard normal if given.
-#         """
-#         cam_pred_data["latent_pose"] = pred_data["latent_pose"]
-#         loss, stats_dict = super().forward(
-#             observed_data, cam_pred_data, nsteps, valid_mask=valid_mask
-#         )
-
-#         # prior to keep latent motion likely
-#         if "latent_motion" in pred_data and self.loss_weights["motion_prior"] > 0.0:
-#             # NOTE: latent is NOT synchronized in time,
-#             # the mask is NOT relevant
-#             # Generate the async mask to properly mask motion prior loss
-#             # Helps to calibrate the range of 'good' loss values
-#             B, T, _ = pred_data["latent_motion"].shape
-#             device = pred_data["latent_motion"].device
-#             async_mask = (
-#                 torch.arange(T, device=device)[None].expand(B, -1)
-#                 < valid_mask.sum(dim=1)[:, None]
-#             )
-#             cur_loss = motion_prior_loss(
-#                 pred_data["latent_motion"],
-#                 cond_prior=pred_data.get("cond_prior", None),
-#                 mask=async_mask,
-#             )
-#             loss += self.loss_weights["motion_prior"] * cur_loss
-#             stats_dict["motion_prior"] = cur_loss
-
-#         # prior to keep initial state likely
-#         have_init_prior_info = (
-#             "joints3d_init" in pred_data
-#             and "joints_vel" in pred_data
-#             and "trans_vel" in pred_data
-#             and "root_orient_vel" in pred_data
-#         )
-#         if have_init_prior_info and self.loss_weights["init_motion_prior"] > 0.0:
-#             cur_loss = self.init_motion_prior_loss(
-#                 pred_data["joints3d_init"],
-#                 pred_data["joints_vel"],
-#                 pred_data["trans_vel"],
-#                 pred_data["root_orient_vel"],
-#             )
-#             loss += (
-#                 self.loss_weights["init_motion_prior"] * init_motion_scale * cur_loss
-#             )  # must scale since doesn't scale with more steps
-#             stats_dict["init_motion_prior"] = cur_loss
-
-#         # make sure joints consistent between SMPL and direct motion prior output
-#         if (
-#             "joints3d_rollout" in pred_data
-#             and "joints3d" in pred_data
-#             and self.loss_weights["joint_consistency"] > 0.0
-#         ):
-#             cur_loss = joint_consistency_loss(
-#                 pred_data["joints3d"],
-#                 pred_data["joints3d_rollout"],
-#                 valid_mask,
-#             )
-#             loss += self.loss_weights["joint_consistency"] * cur_loss
-#             stats_dict["joint_consistency"] = cur_loss
-
-#         # make sure bone lengths between frames of direct motion prior output are consistent
-#         if "joints3d_rollout" in pred_data and self.loss_weights["bone_length"] > 0.0:
-#             cur_loss = bone_length_loss(pred_data["joints3d_rollout"], valid_mask)
-#             loss += self.loss_weights["bone_length"] * cur_loss
-#             stats_dict["bone_length"] = cur_loss
-
-#         # make sure rolled out joints match observations too
-#         if (
-#             "joints3d" in observed_data
-#             and "joints3d_rollout" in pred_data
-#             and self.loss_weights["joints3d_rollout"] > 0.0
-#         ):
-#             raise ValueError
-#             # cur_loss = joints3d_loss(
-#             #     observed_data["joints3d"], pred_data["joints3d_rollout"], valid_mask
-#             # )
-#             # loss += self.loss_weights["joints3d_rollout"] * cur_loss
-#             # stats_dict["joints3d_rollout"] = cur_loss
-
-#         # velocity 0 during contacts
-#         if (
-#             self.loss_weights["contact_vel"] > 0.0
-#             and "contacts_conf" in pred_data
-#             and "joints3d" in pred_data
-#         ):
-#             raise ValueError
-#             # cur_loss = contact_vel_loss(
-#             #     pred_data["contacts_conf"], pred_data["joints3d"], valid_mask
-#             # )
-#             # loss += self.loss_weights["contact_vel"] * cur_loss
-#             # stats_dict["contact_vel"] = cur_loss
-
-#         # contacting joints are near the floor
-#         if (
-#             self.loss_weights["contact_height"] > 0.0
-#             and "contacts_conf" in pred_data
-#             and "joints3d" in pred_data
-#         ):
-#             raise ValueError
-#             # cur_loss = contact_height_loss(
-#             #     pred_data["contacts_conf"], pred_data["joints3d"], valid_mask
-#             # )
-#             # loss += self.loss_weights["contact_height"] * cur_loss
-#             # stats_dict["contact_height"] = cur_loss
-
-#         # floor is close to the initialization
-#         if (
-#             self.loss_weights["floor_reg"] > 0.0
-#             and "floor_plane" in pred_data
-#             and "floor_plane" in observed_data
-#         ):
-#             raise ValueError
-#             # cur_loss = floor_reg_loss(
-#             #     pred_data["floor_plane"], observed_data["floor_plane"]
-#             # )
-#             # loss += self.loss_weights["floor_reg"] * nsteps * cur_loss
-#             # stats_dict["floor_reg"] = cur_loss
-
-#         return loss, stats_dict
 
 
 def joints3d_loss(joints3d_obs, joints3d_pred, mask=None):
@@ -829,9 +645,6 @@ class Joints2DLoss(nn.Module):
         """
         # Safety check: detect NaN in predictions before computing loss
         if torch.isnan(joints2d_pred).any() or torch.isinf(joints2d_pred).any():
-            print(f"ERROR: joints2d_pred contains NaN or Inf!")
-            print(f"  NaN count: {torch.isnan(joints2d_pred).sum().item()}")
-            print(f"  This means MANO model produced invalid output")
             return torch.tensor(1e8, device=joints2d_pred.device, requires_grad=True)
         
         if mask is not None:
@@ -858,10 +671,6 @@ class Joints2DLoss(nn.Module):
             
             # Safety check: detect invalid/degenerate cases
             if torch.isnan(hand_scale).any() or torch.isinf(hand_scale).any() or (hand_scale < 5.0).any():
-                print(f"ERROR: Invalid hand_scale! min={hand_scale.min():.2f}, max={hand_scale.max():.2f}")
-                print(f"  This indicates MANO produced degenerate output (collapsed joints)")
-                print(f"  kp_min: {kp_min[0, 0]}, kp_max: {kp_max[0, 0]}")
-                # Return a large constant loss to signal the optimizer this is a bad configuration
                 return torch.tensor(1e6, device=hand_scale.device, requires_grad=True)
             
             # Clamp to reasonable range (5-1000 pixels)
@@ -881,59 +690,6 @@ class Joints2DLoss(nn.Module):
         loss = torch.mean(reproj_err)
         return loss
     
-
-# class Joints2DLoss(nn.Module):
-#     def __init__(self, ignore_op_joints=None, joints2d_sigma=100):
-#         super().__init__()
-#         self.ignore_op_joints = ignore_op_joints
-#         self.joints2d_sigma = joints2d_sigma
-
-#     def forward(self, joints2d_obs, joints2d_pred, mask=None):
-#         """
-#         :param joints2d_obs (B, T, 25, 3)
-#         :param joints2d_pred (B, T, 22, 2)
-#         :param mask (optional) (B, T)
-#         """
-#         if mask is not None:
-#             mask = mask.bool()
-#             joints2d_obs = joints2d_obs[mask]  # (N, 25, 3)
-#             joints2d_pred = joints2d_pred[mask]  # (N, 22, 2)
-
-#         joints2d_obs_conf = joints2d_obs[..., 2:3]
-#         if self.ignore_op_joints is not None:
-#             # set confidence to 0 so not weighted
-#             joints2d_obs_conf[..., self.ignore_op_joints, :] = 0.0
-
-#         # Compute per-joint pixel errors
-#         error = joints2d_pred - joints2d_obs[..., :2]  # (N, J, 2)
-#         pixel_error = torch.sqrt((error**2).sum(dim=-1, keepdim=True))  # (N, J, 1)
-        
-#         # Use Smooth L1 (Huber) loss: L2 for small errors, L1 for large errors
-#         # This prevents gradient explosion while keeping strong gradients for normal errors
-#         # Beta=1000 means: errors <1000px get L2 (strong gradients), errors >1000px get L1 (bounded)
-#         beta = 1000.0  # Transition point: L2 below, L1 above
-        
-#         smooth_l1 = torch.nn.functional.smooth_l1_loss(
-#             joints2d_pred, 
-#             joints2d_obs[..., :2], 
-#             reduction='none',
-#             beta=beta
-#         )  # (N, J, 2)
-        
-#         sqr_dist = smooth_l1
-        
-#         # DEBUG
-#         print(f'Pixel errors: mean={pixel_error.mean():.1f}, max={pixel_error.max():.1f}, median={pixel_error.median():.1f}')
-#         num_large = (pixel_error > beta).sum().item()
-#         print(f'L2 loss for {pixel_error.numel() - num_large}/{pixel_error.numel()} joints, L1 for {num_large} large >{beta}px')
-#         print(f'Loss stats: mean={sqr_dist.mean():.2f}, max={sqr_dist.max():.2f}')
-
-#         # Weight by confidence and compute loss
-#         reproj_err = (joints2d_obs_conf**2) * sqr_dist
-#         reproj_err = torch.clamp(reproj_err, max=1000)
-#         loss = torch.mean(reproj_err)
-#         return loss
-
 
 class Points3DLoss(nn.Module):
     def __init__(
@@ -1079,8 +835,6 @@ class GeneralContactLoss(nn.Module):
                 v2l, t2l = self.to_lowres(v2, 1)
 
                 # compute intersection between v1 and v2
-                # print(v1.shape, t1l.shape)
-                # exit()
                 interior_v1 = winding_numbers(v1, t2l).ge(0.99)
                 interior_v2 = winding_numbers(v2, t1l).ge(0.99)
 
@@ -1123,10 +877,7 @@ class GeneralContactLoss(nn.Module):
 
             # compute loss
             if len(batch_losses) > 0:
-                loss = sum(batch_losses) / len(batch_losses)   
-
-            #if loss > 1.0:
-            #    import ipdb; ipdb.set_trace()
+                loss = sum(batch_losses) / len(batch_losses)
 
             return loss
 
@@ -1170,8 +921,6 @@ def joints3d_smooth_loss(joints3d_pred, mask=None, normalize_by_scale=True):
     """
     # Safety check: detect NaN in predictions before computing loss
     if torch.isnan(joints3d_pred).any() or torch.isinf(joints3d_pred).any():
-        print(f"ERROR: joints3d_pred contains NaN or Inf in smooth loss!")
-        print(f"  NaN count: {torch.isnan(joints3d_pred).sum().item()}")
         return torch.tensor(1e8, device=joints3d_pred.device, requires_grad=True)
     
     B, T, *dims = joints3d_pred.shape
@@ -1186,9 +935,6 @@ def joints3d_smooth_loss(joints3d_pred, mask=None, normalize_by_scale=True):
         
         # Safety check: detect invalid/degenerate cases
         if torch.isnan(hand_scale).any() or torch.isinf(hand_scale).any() or (hand_scale < 0.001).any():
-            print(f"ERROR: Invalid hand_scale in joints3d_smooth! min={hand_scale.min():.4f}, max={hand_scale.max():.4f}")
-            print(f"  This indicates MANO produced degenerate 3D output")
-            # Return a large constant loss
             return torch.tensor(1e6, device=hand_scale.device, requires_grad=True)
         
         # Clamp to reasonable range (0.001m - 1m for hand size)
@@ -1212,131 +958,7 @@ def joints3d_smooth_loss(joints3d_pred, mask=None, normalize_by_scale=True):
     loss = 0.5 * torch.sum(loss)
     return loss
 
-# def motion_prior_loss(latent_motion_pred, cond_prior=None, mask=None):
-#     """
-#     :param latent_motion_pred (B, T, D)
-#     :param cond_prior (optional) (B, T, D, 2) stacked mean and var of post distribution
-#     :param mask (optional) (B, T)
-#     """
-#     if mask is not None:
-#         latent_motion_pred = latent_motion_pred[mask.bool()]
 
-#     if cond_prior is None:
-#         # assume standard normal
-#         loss = latent_motion_pred**2
-#     else:
-#         pm, pv = cond_prior[..., 0], cond_prior[..., 1]
-#         if mask is not None:
-#             mask = mask.bool()
-#             pm, pv = pm[mask], pv[mask]
-#         loss = -log_normal(latent_motion_pred, pm, pv)
-
-#     return torch.sum(loss)
-
-# class GMMPriorLoss(nn.Module):
-#     def __init__(self, init_motion_prior=None):
-#         super().__init__()
-#         if init_motion_prior is None:
-#             self.active = False
-#             return
-
-#         # build pytorch GMM
-#         self.active = True
-#         self.init_motion_prior = dict()
-#         gmm = build_gmm(*init_motion_prior["gmm"])
-#         self.init_motion_prior["gmm"] = gmm
-
-#     def forward(self, joints, joints_vel, trans_vel, root_orient_vel):
-#         if not self.active:
-#             return torch.tensor(0.0, dtype=torch.float32, device=joints.device)
-
-#         # create input
-#         B = joints.size(0)
-
-#         joints = joints.reshape((B, -1))
-#         joints_vel = joints_vel.reshape((B, -1))
-#         trans_vel = trans_vel.reshape((B, -1))
-#         root_orient_vel = root_orient_vel.reshape((B, -1))
-#         init_state = torch.cat([joints, joints_vel, trans_vel, root_orient_vel], dim=-1)
-
-#         loss = -self.init_motion_prior["gmm"].log_prob(init_state)
-#         loss = torch.sum(loss)
-
-#         return loss
-
-
-# def build_gmm(gmm_weights, gmm_means, gmm_covs):
-#     mix = Categorical(gmm_weights)
-#     comp = MultivariateNormal(gmm_means, covariance_matrix=gmm_covs)
-#     gmm_distrib = MixtureSameFamily(mix, comp)
-#     return gmm_distrib
-
-
-# def joint_consistency_loss(smpl_joints3d, rollout_joints3d, mask=None):
-#     """
-#     :param smpl_joints3d (B, T, J, 3)
-#     :param rollout_joints3d (B, T, J, 3)
-#     :param mask (optional) (B, T)
-#     """
-#     loss = (smpl_joints3d - rollout_joints3d) ** 2
-#     if mask is not None:
-#         loss = loss[mask.bool()]
-#     loss = 0.5 * torch.sum(loss)
-#     return loss
-
-
-# def bone_length_loss(rollout_joints3d, mask=None):
-#     bones = rollout_joints3d[:, :, 1:]
-#     parents = rollout_joints3d[:, :, SMPL_PARENTS[1:]]
-#     bone_lengths = torch.norm(bones - parents, dim=-1)
-#     loss = bone_lengths[:, 1:] - bone_lengths[:, :-1]
-#     if mask is not None:
-#         mask = mask.bool()
-#         mask = mask[:, 1:] & mask[:, :-1]
-#         loss = loss[mask]
-#     loss = 0.5 * torch.sum(loss**2)
-#     return loss
-
-
-def kl_normal(qm, qv, pm, pv):
-    """
-    Computes the elem-wise KL divergence between two normal distributions KL(q || p) and
-    sum over the last dimension
-    ​
-    Args:
-        qm: tensor: (batch, dim): q mean
-        qv: tensor: (batch, dim): q variance
-        pm: tensor: (batch, dim): p mean
-        pv: tensor: (batch, dim): p variance
-    ​
-    Return:
-        kl: tensor: (batch,): kl between each sample
-    """
-    element_wise = 0.5 * (
-        torch.log(pv) - torch.log(qv) + qv / pv + (qm - pm).pow(2) / pv - 1
-    )
-    kl = element_wise.sum(-1)
-    return kl
-
-
-def log_normal(x, m, v):
-    """
-    Computes the elem-wise log probability of a Gaussian and then sum over the
-    last dim. Basically we're assuming all dims are batch dims except for the
-    last dim.    Args:
-        x: tensor: (batch_1, batch_2, ..., batch_k, dim): Observation
-        m: tensor: (batch_1, batch_2, ..., batch_k, dim): Mean
-        v: tensor: (batch_1, batch_2, ..., batch_k, dim): Variance    Return:
-        log_prob: tensor: (batch_1, batch_2, ..., batch_k): log probability of
-            each sample. Note that the summation dimension is not kept
-    """
-    log_prob = (
-        -torch.log(torch.sqrt(v))
-        - math.log(math.sqrt(2 * math.pi))
-        - ((x - m) ** 2 / (2 * v))
-    )
-    log_prob = torch.sum(log_prob, dim=-1)
-    return log_prob
 
 
 def apply_robust_weighting(
@@ -1394,12 +1016,7 @@ def bisquare_robust_weights(res, tune_const=4.6851):
     """
     # print(res.size())
     norm_res = res / (robust_std(res) * tune_const)
-    # NOTE: this should use absolute value, it's ok right now since only used for 3d point cloud residuals
-    #   which are guaranteed positive, but generally this won't work)
     outlier_mask = norm_res >= 1.0
-
-    # print(torch.sum(outlier_mask))
-    # print('Outlier frac: %f' % (float(torch.sum(outlier_mask)) / res.size(1)))
 
     w = (1.0 - norm_res**2) ** 2
     w[outlier_mask] = 0.0
