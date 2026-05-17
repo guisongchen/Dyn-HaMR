@@ -2,6 +2,7 @@ import os
 import numpy as np
 
 import torch
+from tqdm import tqdm
 
 from body_model import OP_IGNORE_JOINTS
 from util.tensor import move_to, detach_all
@@ -107,7 +108,7 @@ class StageOptimizer(object):
             loss.backward()
             return loss
 
-        for i in range(num_iters):
+        for i in tqdm(range(num_iters), desc=self.name, leave=False):
             self.optim.step(closure)
 
             if np.isnan(self.cur_loss):
