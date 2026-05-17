@@ -716,6 +716,7 @@ def multi_stage_opt(opt, device, obs_data, res_dict, hand_model, config_f, exp_s
     P_list = []
     Be_list = []
     DR_list = []
+    is_right_list = []
     for idx in range(len(res_dict['pose_body'])):
 
         assert (res_dict['is_right'][idx] == (obs_data['is_right'][idx])).all()
@@ -882,6 +883,7 @@ def multi_stage_opt(opt, device, obs_data, res_dict, hand_model, config_f, exp_s
         P_list.append(P.detach().cpu().numpy())
         Be_list.append(Be.detach().cpu().numpy())
         DR_list.append(DR.detach().cpu().numpy())
+        is_right_list.append(is_right.detach().cpu().numpy()[0])  # (T,) per hand
 
     save_keys = ['root_orient', 'trans', 'latent_pose', 'is_right', 'init_body_pose', 'world_scale', 'betas', 'pose_body', 'cam_R', 'cam_t', 'intrins']
     R_list = np.vstack(R_list)
@@ -889,13 +891,15 @@ def multi_stage_opt(opt, device, obs_data, res_dict, hand_model, config_f, exp_s
     P_list = np.vstack(P_list)
     Be_list = np.vstack(Be_list)
     DR_list = np.vstack(DR_list)
-    res_dict['root_orient'] = R_list[None]
-    res_dict['trans'] = T_list[None]
+    is_right_list = np.vstack(is_right_list)
+    res_dict['root_orient'] = R_list
+    res_dict['trans'] = T_list
     res_dict['latent_pose'] = P_list
-    res_dict['pose_body'] = P_list[None].reshape(1, -1, 45)
+    num_hands = len(P_list) if P_list.ndim == 1 else P_list.shape[0]
+    res_dict['pose_body'] = P_list.reshape(num_hands, -1, 45)
     res_dict['betas'] = Be_list
     res_dict['decode_root'] = DR_list
-    res_dict['is_right'] = target['is_right'].detach().cpu().numpy()
+    res_dict['is_right'] = is_right_list
     res_dict['cam_R'] = target['cam_R'].detach().cpu().numpy()
     res_dict['cam_t'] = target['cam_t'].detach().cpu().numpy()
     res_dict['intrins'] = torch.cat([target['cam_f'], target['cam_center']], dim=-1).detach().cpu().numpy()[0]
