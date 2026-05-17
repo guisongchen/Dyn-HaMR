@@ -1,11 +1,10 @@
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 
 import torch
 
 from body_model import OP_IGNORE_JOINTS
-from util.logger import Logger, log_cur_stats
+from util.logger import Logger
 from util.tensor import move_to, detach_all
 from vis.output import prep_result_vis, animate_scene
 
@@ -41,7 +40,6 @@ class StageOptimizer(object):
         self.optim = torch.optim.LBFGS(
             self.opt_params, max_iter=lbfgs_max_iter, lr=lr, line_search_fn=LINE_SEARCH
         )
-        self.loss_dicts = {}
 
         self.vis_every = vis_every
         self.max_chunk_steps = max_chunk_steps
@@ -56,8 +54,7 @@ class StageOptimizer(object):
         self.reached_max_iter = -1
 
     def set_opt_vars(self, param_names):
-        Logger.log("Set param names:")
-        Logger.log(param_names)
+        Logger.log(f"Set param names: {param_names}")
 
         self.param_names = param_names
         self.model.params.set_require_grads(self.param_names)
@@ -85,8 +82,6 @@ class StageOptimizer(object):
             Logger.log(f"saving params to {out_path}")
             np.savez(out_path, **results)
 
-        self.plot_losses(out_dir)
-
     def vis_result(self, res_dir, obs_data, vis=None, num_steps=-1):
         if vis is None or self.vis_every < 0:
             return
@@ -108,46 +103,7 @@ class StageOptimizer(object):
         )
         animate_scene(vis, scene_dict, res_pre, render_views=["src_cam", "above"])
 
-    def log_losses(self, stats_dict):
-        stats_dict = move_to(detach_all(stats_dict), "cpu")
-        log_cur_stats(
-            stats_dict,
-            iter=self.cur_step,
-            to_stdout=(self.cur_step % 10 == 0),
-        )
-        for loss_name, loss_val in stats_dict.items():
-            loss_dict = self.loss_dicts.get(loss_name, {})
-            loss_series = loss_dict.get(self.cur_step, [])
-            loss_series.append(loss_val)
-            loss_dict[self.cur_step] = loss_series
-            self.loss_dicts[loss_name] = loss_dict
-
-    def record_current_losses(self, writer):
-        """
-        record the mean of current step's loss values in tensorboard
-        """
-        if len(self.loss_dicts) < 1:
-            return
-
-        for loss_name, loss_dict in self.loss_dicts.items():
-            loss_mean = np.mean(loss_dict[self.cur_step])
-            writer.add_scalar(f"{self.name}/{loss_name}", loss_mean, self.cur_step)
-
-    def plot_losses(self, res_dir):
-        """
-        plot a box plot for each BFGS iteration
-        """
-        if len(self.loss_dicts) < 1:
-            return
-        for loss_name, loss_dict in self.loss_dicts.items():
-            # times (list len T)
-            # loss vals (list len T of loss value lists)
-            times, loss_vals = zip(*loss_dict.items())
-            plt.figure()
-            plt.boxplot(loss_vals, labels=times, showfliers=False)
-            plt.savefig(f"{res_dir}/{loss_name}.png")
-
-    def run(self, obs_data, num_iters, out_dir, vis=None, writer=None):
+    def run(self, obs_data, num_iters, out_dir, vis=None):
         self.cur_step = 0
         self.loss.cur_step = 0
         res_dir = os.path.join(out_dir, self.name)
@@ -157,12 +113,10 @@ class StageOptimizer(object):
         Logger.log(f"OPTIMIZING {self.name} FOR {num_iters} ITERATIONS")
 
         for i in range(num_iters):
-            Logger.log("ITER: %d" % (i))
-
             self.cur_step = i
             self.loss.cur_step = i
 
-            self.optim_step(obs_data, i, writer)
+            self.optim_step(obs_data)
 
             if np.isnan(self.cur_loss):
                 raise ValueError
@@ -188,19 +142,15 @@ class StageOptimizer(object):
         self.save_results(res_dir, seq_name)
         self.vis_result(res_dir, obs_data, vis)
 
-    def optim_step(self, obs_data, i, writer=None):
+    def optim_step(self, obs_data):
         def closure():
             self.optim.zero_grad()
-            loss, stats_dict, preds = self.forward_pass(obs_data)
-            stats_dict["total"] = loss
-            self.log_losses(move_to(detach_all(stats_dict), "cpu"))
-            self.cur_loss = stats_dict["total"].detach().cpu().item()
+            loss, _, _ = self.forward_pass(obs_data)
+            self.cur_loss = loss.detach().cpu().item()
             loss.backward()
             return loss
 
         self.optim.step(closure)
-        if writer is not None:
-            self.record_current_losses(writer)
 
 
 class RootOptimizer(StageOptimizer):

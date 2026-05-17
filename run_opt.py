@@ -4,7 +4,6 @@ import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
 from data import get_dataset_from_cfg, expand_source_paths
 
@@ -118,12 +117,10 @@ def run_opt(cfg, dataset, out_dir, device):
         )
     print("OPTIMIZER OPTIONS:", opts)
 
-    writer = SummaryWriter(out_dir)
-
     print('start optimization')
     a = time.time()
     optim = RootOptimizer(base_model, stage_loss_weights, **opts)
-    optim.run(obs_data, cfg.optim.root.num_iters, out_dir, vis, writer)
+    optim.run(obs_data, cfg.optim.root.num_iters, out_dir, vis)
 
     args = cfg.optim.smooth
     print(args)
@@ -132,7 +129,7 @@ def run_opt(cfg, dataset, out_dir, device):
     optim = SmoothOptimizer(
         base_model, stage_loss_weights, opt_scale=args.opt_scale, **opts
     )
-    optim.run(obs_data, args.num_iters, out_dir, vis, writer)
+    optim.run(obs_data, args.num_iters, out_dir, vis)
     c = time.time()
     print('Smooth optimization time: ', c - b)
 
