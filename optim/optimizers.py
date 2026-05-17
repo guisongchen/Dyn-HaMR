@@ -28,9 +28,7 @@ class StageOptimizer(object):
         param_names,
         lr=1.0,
         lbfgs_max_iter=20,
-        save_every=10,
         vis_every=-1,
-        save_meshes=True,
         max_chunk_steps=10,
         **kwargs,
     ):
@@ -43,13 +41,9 @@ class StageOptimizer(object):
         self.optim = torch.optim.LBFGS(
             self.opt_params, max_iter=lbfgs_max_iter, lr=lr, line_search_fn=LINE_SEARCH
         )
-        # LBFGS computes losses multiple times per iteration,
-        # save a dict mapping iteration to list of stats_dicts
         self.loss_dicts = {}
 
-        self.save_every = save_every
         self.vis_every = vis_every
-        self.save_meshes = save_meshes
         self.max_chunk_steps = max_chunk_steps
 
         self.cur_step = 0
@@ -73,42 +67,6 @@ class StageOptimizer(object):
 
     def forward_pass(self, obs_data):
         raise NotImplementedError
-
-    def load_checkpoint(self, out_dir, device=None):
-        if device is None:
-            device = torch.device("cpu")
-
-        param_path = os.path.join(out_dir, f"{self.name}_params.pth")
-        if os.path.isfile(param_path):
-            param_dict = torch.load(param_path, map_location=device)
-            self.model.params.load_dict(param_dict)
-            Logger.log(f"Params loaded from {param_path}")
-
-        optim_path = os.path.join(out_dir, f"{self.name}_optim.pth")
-        if os.path.isfile(optim_path):
-            optim_dict = torch.load(optim_path)
-            self.optim.load_state_dict(optim_dict["optim"])
-            self.cur_step = optim_dict["cur_step"]
-            Logger.log(f"Optimizer loaded from {optim_path} at iter {self.cur_step}")
-
-    def save_checkpoint(self, out_dir):
-        param_path = os.path.join(out_dir, f"{self.name}_params.pth")
-        param_dict = self.model.params.get_dict()
-        if "world_scale" in param_dict:
-            print("WORLD_SCALE", param_dict["world_scale"].detach().cpu())
-        if "floor_plane" in param_dict:
-            print("FLOOR PLANE", param_dict["floor_plane"].detach().cpu())
-        if "cam_f" in param_dict:
-            print("CAM_F", param_dict["cam_f"].detach().cpu())
-        torch.save(param_dict, param_path)
-        Logger.log(f"Model saved at {param_path}")
-
-        optim_path = os.path.join(out_dir, f"{self.name}_optim.pth")
-        torch.save(
-            {"optim": self.optim.state_dict(), "cur_step": self.cur_step},
-            optim_path,
-        )
-        Logger.log(f"Optimizer saved at {optim_path}")
 
     def save_results(self, out_dir, seq_name):
         """
@@ -155,7 +113,7 @@ class StageOptimizer(object):
         log_cur_stats(
             stats_dict,
             iter=self.cur_step,
-            to_stdout=(self.cur_step % self.save_every == 0),
+            to_stdout=(self.cur_step % 10 == 0),
         )
         for loss_name, loss_val in stats_dict.items():
             loss_dict = self.loss_dicts.get(loss_name, {})
@@ -196,48 +154,24 @@ class StageOptimizer(object):
         os.makedirs(res_dir, exist_ok=True)
         seq_name = obs_data["seq_name"][0]
 
-        # try to load from checkpoint if exists
-        device = obs_data["joints2d"].device
-        self.load_checkpoint(out_dir, device=device)
-
-        if self.cur_step >= num_iters:
-            Logger.log(f"Current optimizer {self}")
-            Logger.log(f"Checkpoint at {self.cur_step} >= {num_iters}, skipping")
-            return
-
         Logger.log(f"OPTIMIZING {self.name} FOR {num_iters} ITERATIONS")
 
-        self.save_results(res_dir, seq_name)
-
-        for i in range(self.cur_step, num_iters):
+        for i in range(num_iters):
             Logger.log("ITER: %d" % (i))
-
-            if (i + 1) % self.save_every == 0:  # save before
-                self.save_checkpoint(out_dir)
-                self.save_results(res_dir, seq_name)
-            else:
-                self.save_checkpoint(out_dir)
-
-            if (i + 1) % self.vis_every == 0:  # render
-                self.vis_result(res_dir, obs_data, vis)
 
             self.cur_step = i
             self.loss.cur_step = i
 
             self.optim_step(obs_data, i, writer)
 
-            # early termination in case of nans
             if np.isnan(self.cur_loss):
-                self.load_checkpoint(out_dir, device=device)
                 raise ValueError
 
-            # termination for the last chunk
             if self.reached_max and self.reached_max_iter < 0:
                 self.reached_max_iter = i - 1
             if self.reached_max and i - self.reached_max_iter >= self.max_chunk_steps:
                 break
 
-            # termination for middle chunks
             loss_change = self.prev_loss - self.cur_loss
             if self.last_updated == i - 1 and loss_change == 0:
                 break
@@ -250,9 +184,7 @@ class StageOptimizer(object):
                 self.last_updated = i
             self.prev_loss = self.cur_loss
 
-        # final save and vis step
         self.cur_step = num_iters
-        self.save_checkpoint(out_dir)
         self.save_results(res_dir, seq_name)
         self.vis_result(res_dir, obs_data, vis)
 
