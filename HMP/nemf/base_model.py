@@ -101,13 +101,13 @@ class BaseModel(ABC):
             return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
         if self.args.scheduler.name == 'StepLR':
             print('StepLR scheduler set')
-            return torch.optim.lr_scheduler.StepLR(optimizer, self.args.scheduler.step_size, self.args.scheduler.gamma, verbose=self.args.verbose)
+            return torch.optim.lr_scheduler.StepLR(optimizer, self.args.scheduler.step_size, self.args.scheduler.gamma)
         if self.args.scheduler.name == 'Plateau':
             print('ReduceLROnPlateau shceduler set')
-            return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=self.args.scheduler.factor, threshold=self.args.scheduler.threshold, patience=5, verbose=True)
+            return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=self.args.scheduler.factor, threshold=self.args.scheduler.threshold, patience=5)
         if self.args.scheduler.name == 'MultiStep':
             print('MultiStep shceduler set')
-            return torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.args.scheduler.milestones, gamma=self.args.scheduler.gamma, verbose=self.args.verbose)
+            return torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.args.scheduler.milestones, gamma=self.args.scheduler.gamma)
         else:
             print('No scheduler set')
             return None

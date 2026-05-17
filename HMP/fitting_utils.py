@@ -164,7 +164,7 @@ def optimize_on_pymafx(pymafx_dict, pymafx_keypoints2d_path):
     # optimize based on 2d keypoints 
     opt_params = [rh_opt_trans]
     optimizer = torch.optim.Adam(opt_params, lr=0.3)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.95, verbose=False)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.95)
     
     K_iter = 3000
     

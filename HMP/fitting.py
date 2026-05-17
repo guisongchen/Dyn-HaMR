@@ -1373,7 +1373,7 @@ def optim_step(hand_model, stg_conf, stg_id, z_l, z_g, betas, target, B,
         param.requires_grad = True
         
     optimizer = torch.optim.Adam(opt_params, lr=stg_conf.lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler.step_size, args.scheduler.gamma, verbose=False)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, args.scheduler.step_size, args.scheduler.gamma)
 
     def mask_data(data, mask):
         ml = len(mask.shape)
