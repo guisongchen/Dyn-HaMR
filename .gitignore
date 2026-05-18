@@ -154,3 +154,4 @@ dmypy.json
 demo_data/
 smooth_fit/
 .claude/
+.vscode/

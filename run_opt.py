@@ -124,7 +124,6 @@ def run_opt(cfg, dataset, out_dir, device):
         f.endswith('_world_results.npz') for f in os.listdir(prior_out)
     )
     if cfg.run_prior and not has_prior_results:
-        import sys
         from loguru import logger
         logger.remove()
         logger.add(sys.stderr, level="WARNING")

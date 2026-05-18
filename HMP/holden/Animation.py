@@ -1,8 +1,14 @@
 import operator
 
 import numpy as np
-import numpy.core.umath as ut               # (for numpy 1.25)
-# import numpy.core.umath_tests as ut
+try:
+    import numpy.core.umath as ut
+except ImportError:
+    try:
+        import numpy.core.umath_tests as ut
+    except ImportError:
+        import numpy as ut
+        ut.matrix_multiply = lambda a, b: np.matmul(a.reshape(-1, a.shape[-2], a.shape[-1]), b.reshape(-1, b.shape[-2], b.shape[-1])).reshape(a.shape)
 
 import AnimationStructure
 from Quaternions import Quaternions
