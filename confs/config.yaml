@@ -1,13 +1,13 @@
 model:
   use_init: True
-  opt_cams: False #True
+  opt_cams: True
   opt_scale: True
   async_tracks: True
 
 overwrite: False
 run_opt: True
 run_vis: True
-run_prior: True
+run_prior: False
 datatype: ${data.video_dir}
 vis:
   phases:
