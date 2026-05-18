@@ -10,7 +10,6 @@ from data import get_dataset_from_cfg
 from optim.output import (
     get_results_paths,
     load_result,
-    save_input_frames,
     save_input_poses,
 )
 from util.tensor import get_device, move_to, detach_all, to_torch
@@ -106,13 +105,6 @@ def run_vis(
 ):
     save_dir = out_dir if save_dir is None else save_dir
 
-    inp_vid_path = save_input_frames(
-        dataset,
-        f"{save_dir}/{dataset.seq_name}_input.mp4",
-        fps=cfg.fps,
-        overwrite=True,
-    )
-
     if render_kps:
         render_keypoints_2d(dataset, save_dir, overwrite=overwrite)
 
@@ -154,7 +146,6 @@ def run_vis(
         render_results(
             cfg,
             dataset,
-            dev_id,
             res_dicts,
             out_names,
             render_views=render_views,
@@ -214,10 +205,37 @@ def render_keypoints_2d(dataset, save_dir, overwrite=False):
 
 
 
-def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
-    """
-    render results for all selected phases
-    """
+def _set_pred_keypoints(vis, hand_model, res_dict):
+    from geometry import camera as cam_util
+    from body_model import run_mano
+
+    joints3d_op = run_mano(
+        hand_model,
+        res_dict["trans"],
+        res_dict["root_orient"],
+        res_dict["pose_body"],
+        res_dict["is_right"],
+        res_dict.get("betas", None),
+    )["joints"]
+
+    cam_R = res_dict["cam_R"]
+    cam_t = res_dict["cam_t"]
+    intrins = res_dict["intrins"]
+
+    if intrins.ndim == 1:
+        intrins = intrins[None, None].expand(cam_R.shape[0], cam_R.shape[1], -1)
+    elif intrins.ndim == 2:
+        intrins = intrins[None].expand(cam_R.shape[0], -1, -1)
+
+    joints2d_pred = cam_util.reproject(
+        joints3d_op, cam_R, cam_t, intrins[0, :, :2], intrins[0, :, 2:]
+    )
+    vis.set_pred_keypoints_seq(
+        [joints2d_pred[0, t].cpu().numpy() for t in range(joints2d_pred.shape[1])]
+    )
+
+
+def render_results(cfg, dataset, res_dicts, out_names, **kwargs):
     assert len(res_dicts) == len(out_names)
     if len(res_dicts) < 1:
         print("no results to render, skipping")
@@ -225,15 +243,14 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
 
     B = len(dataset)
     T = dataset.seq_len
-    loader = DataLoader(dataset, batch_size=B, shuffle=False)
-
     device = get_device()
-    obs_data = move_to(next(iter(loader)), device)
+    obs_data = move_to(next(iter(DataLoader(dataset, batch_size=B, shuffle=False))), device)
     cam_data = dataset.get_camera_data()
 
-    cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
-    mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
-    hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
+    cfg.paths.MANO_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mano")
+    mano_cfg = {k.lower(): v for k, v in dict(cfg.MANO).items()}
+    hand_model = MANO(batch_size=B * T, pose2rot=True, **mano_cfg).to(device)
+
     vis = init_viewer(
         dataset.img_size,
         cam_data["intrins"][0],
@@ -242,107 +259,50 @@ def render_results(cfg, dataset, dev_id, res_dicts, out_names, **kwargs):
         fps=cfg.fps,
     )
 
-    # Set 2D keypoints for overlay visualization if render_keypoints is enabled
     if kwargs.get('render_keypoints', False):
-        # Load 2D keypoints from dataset - assume single track for now
-        # joints2d is list of (T, J, 3) arrays, one per track
         dataset.load_data()
-        if len(dataset.data_dict["joints2d"]) > 0:
-            joints2d = dataset.data_dict["joints2d"][0]  # First track: (T, J, 3)
-            keypoints_seq = [joints2d[t] for t in range(T)]
-            vis.set_keypoints_seq(keypoints_seq)
+        if dataset.data_dict.get("joints2d"):
+            joints2d = dataset.data_dict["joints2d"][0]
+            vis.set_keypoints_seq([joints2d[t] for t in range(T)])
 
-    save_paths_all = []
     render_views = kwargs.get('render_views', ['src_cam', 'above', 'side'])
-    
-    # Separate src_cam from other views
     src_cam_views = [v for v in render_views if v == 'src_cam']
     other_views = [v for v in render_views if v != 'src_cam']
-    
+
     for res_dict, out_name in zip(res_dicts, out_names):
         res_dict = move_to(res_dict, device)
-        
-        # Render src_cam WITH temporal smoothing but WITHOUT trans smoothing
-        if src_cam_views:
-            print(f"Rendering src_cam view WITH temporal smoothing (excluding trans)")
-            scene_dict_no_smooth = prep_result_vis(
-                res_dict,
-                obs_data["vis_mask"],
-                obs_data["track_id"],
-                hand_model,
-                temporal_smooth=cfg.temporal_smooth,  # Apply smoothing
-                smooth_trans=False  # But don't smooth translation
-            )
-            
-            # Compute predicted 2D keypoints using THE SAME function as optimization
-            if kwargs.get('render_keypoints', False):
-                from geometry import camera as cam_util
-                from body_model import run_mano
-                
-                # Get the same data as optimization
-                joints3d_op = run_mano(
-                    hand_model,
-                    res_dict["trans"],
-                    res_dict["root_orient"],
-                    res_dict["pose_body"],
-                    res_dict["is_right"],
-                    res_dict.get("betas", None),
-                )["joints"]  # (B, T, J, 3)
-                
-                # Get cameras (same as optimization)
-                cam_R = res_dict["cam_R"]  # (B, T, 3, 3)
-                cam_t = res_dict["cam_t"]  # (B, T, 3)
-                intrins = res_dict["intrins"]  # (4,) or (T, 4) or (B, T, 4)
-                
-                # Ensure intrins is (B, T, 4)
-                if intrins.ndim == 1:  # (4,)
-                    intrins = intrins[None, None].expand(cam_R.shape[0], cam_R.shape[1], -1)  # (B, T, 4)
-                elif intrins.ndim == 2:  # (T, 4)
-                    intrins = intrins[None].expand(cam_R.shape[0], -1, -1)  # (B, T, 4)
-                
-                cam_f = intrins[:, :, :2]  # (B, T, 2)
-                cam_center = intrins[:, :, 2:]  # (B, T, 2)
-                
-                # Reproject using EXACTLY the same function as optimization
-                joints2d_pred = cam_util.reproject(joints3d_op, cam_R, cam_t, cam_f[0], cam_center[0])  # (B, T, J, 2)
-                
-                # Convert to list for first track
-                pred_keypoints_seq = [joints2d_pred[0, t].cpu().numpy() for t in range(joints2d_pred.shape[1])]
-                vis.set_pred_keypoints_seq(pred_keypoints_seq)
 
-            # Render only src_cam view
-            kwargs_src = kwargs.copy()
-            kwargs_src['render_views'] = src_cam_views
-            save_paths_src = animate_scene(
-                vis, scene_dict_no_smooth, out_name, seq_name=dataset.seq_name, **kwargs_src
-            )
-            save_paths_all.append(save_paths_src)
-        
-        # Render other views WITH temporal smoothing (including trans)
-        if other_views:
-            print(f"Rendering {other_views} views WITH temporal smoothing (including trans)")
-            scene_dict_smooth = prep_result_vis(
+        if src_cam_views:
+            scene = prep_result_vis(
                 res_dict,
                 obs_data["vis_mask"],
                 obs_data["track_id"],
                 hand_model,
-                temporal_smooth=cfg.temporal_smooth,  # Apply smoothing for other views
-                smooth_trans=True  # Smooth translation for other views
+                temporal_smooth=cfg.temporal_smooth,
+                smooth_trans=False,
             )
-            
-            # Render other views
-            kwargs_other = kwargs.copy()
-            kwargs_other['render_views'] = other_views
-            kwargs_other['render_keypoints'] = False  # No keypoints on other views
-            save_paths_other = animate_scene(
-                vis, scene_dict_smooth, out_name, seq_name=dataset.seq_name, **kwargs_other
+            if kwargs.get('render_keypoints', False):
+                _set_pred_keypoints(vis, hand_model, res_dict)
+            animate_scene(
+                vis, scene, out_name, seq_name=dataset.seq_name,
+                **{**kwargs, 'render_views': src_cam_views}
             )
-            if not src_cam_views:
-                save_paths_all.append(save_paths_other)
+
+        if other_views:
+            scene = prep_result_vis(
+                res_dict,
+                obs_data["vis_mask"],
+                obs_data["track_id"],
+                hand_model,
+                temporal_smooth=cfg.temporal_smooth,
+                smooth_trans=True,
+            )
+            animate_scene(
+                vis, scene, out_name, seq_name=dataset.seq_name,
+                **{**kwargs, 'render_views': other_views, 'render_keypoints': False}
+            )
 
     vis.close()
-
-    return save_paths_all
 
 
 

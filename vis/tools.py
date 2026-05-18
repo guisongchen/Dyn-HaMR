@@ -85,10 +85,6 @@ def filter_visible_meshes(verts, joints, colors, l_faces, r_faces, is_right, vis
         if True, make occluded people alpha=0.5, otherwise alpha=1
     returns a list of T lists verts (Bi, V, 3), colors (Bi, 4), faces (F, 3)
     """
-    # print(verts.shape, joints.shape, colors.shape, l_faces.shape, r_faces.shape, is_right.shape, vis_mask.shape)
-    # torch.Size([2, 2, 21, 3]) torch.Size([2, 2, 3, 3]) torch.Size([2, 2, 3]) torch.Size([2, 2]) torch.Size([2, 2])
-
-    #     import ipdb; ipdb.set_trace()
     B, T = verts.shape[:2]
     l_faces = [l_faces for t in range(T)]
     r_faces = [r_faces for t in range(T)]
@@ -97,7 +93,6 @@ def filter_visible_meshes(verts, joints, colors, l_faces, r_faces, is_right, vis
         joints = [joints[:, t] for t in range(T)]
         colors = [colors for t in range(T)]
         is_right = [is_right[:, t] for t in range(T)]
-        # print('11111111111', is_right)
         return verts, joints, colors, l_faces, r_faces, is_right, bounds
 
 
@@ -115,10 +110,6 @@ def filter_visible_meshes(verts, joints, colors, l_faces, r_faces, is_right, vis
         for t in range(T)
     ]
     bounds = get_bboxes(verts, vis_mask)
-    # print('2222222222222', is_right_list)
-    # print('vvvvvv', len(vert_list), vert_list[0].shape)
-    # # torch.Size([1, 2, 1, 2]) torch.Size([1, 2, 1, 2])
-    # raise ValueError
     return vert_list, joints_list, colors, l_faces, r_faces, is_right_list, bounds
 
 

@@ -147,11 +147,6 @@ def get_seq_static_lookat_points(seq_name=None, bounds=None):
 
         side_source = torch.tensor([4.0, -0.5, 0])
         side_target = torch.tensor([1.0, 0.5, 4])
-        #         top_source = torch.tensor([0.0, -3.0, -2.0])
-        #         top_target = torch.tensor([0.0, 0.5, 2.0])
-
-        #         side_source = torch.tensor([5.0, -0.5, -3])
-        #         side_target = torch.tensor([1.0, 0.5, 4])
         return (top_source, top_target), (side_source, side_target)
 
     if seq_name=="024165_mpii_test":
@@ -169,14 +164,6 @@ def get_seq_static_lookat_points(seq_name=None, bounds=None):
         side_source = torch.tensor([-4, 1, 3])
         side_target = torch.tensor([-1, 1, 8])
         return (top_source, top_target), (side_source, side_target)
-
-#    if seq_name == "024159_mpii_test":
-#        top_source = torch.tensor([-4.0, -2.0, -6.0])
-#        top_target = torch.tensor([-4.0, 0.0, 0.0])
-
-#        side_source = torch.tensor([-12, -1, -2])
-#        side_target = torch.tensor([-10.0, 0.0, 0.0])
-#        return (top_source, top_target), (side_source, side_target)
 
     if seq_name == "023962_mpii_test":
         top_source = torch.tensor([0, -0.5, -2])
@@ -227,13 +214,9 @@ def get_seq_static_lookat_points(seq_name=None, bounds=None):
         return (top_source, top_target), (side_source, side_target)
 
     if bounds is not None:
-        # (3), (3), (3)
-        bb_min, bb_max, center = bounds
-        print("SCENE BOUNDS", bb_min, bb_max, center)
-        length = torch.abs(bb_max - bb_min).max()
-        print(length)
+        center = bounds[2]
+        length = torch.abs(bounds[1] - bounds[0]).max()
         top_source = center + torch.tensor([0.0, -2.0, -0.9 * length])
-
         side_source = center + torch.tensor([0.5 * length, -0.5, -0.7 * length])
         return (top_source, center), (side_source, center)
 

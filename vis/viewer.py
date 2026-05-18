@@ -1,8 +1,9 @@
 import os
+import time
+
+import cv2
 import imageio
 import numpy as np
-
-import time
 import torch
 import trimesh
 
@@ -310,7 +311,6 @@ class OffscreenAnimation(AnimationBase):
         Returns:
             img with keypoints drawn
         """
-        import cv2
         img = img.copy()
         for j in range(keypoints.shape[0]):
             x, y, conf = keypoints[j]
@@ -491,8 +491,6 @@ def composite_layers(frames, bg_img, fac=0.4):
     comp += vis * bg_img[..., 3:] * bg_img[..., :3]
     vis *= 1 - bg_img[..., 3:]
     return comp + vis
-    rgba = np.concatenate([comp, 1 - vis], axis=-1)
-    return rgba
 
 
 class AnimationViewer(AnimationBase):
@@ -605,14 +603,12 @@ def make_checkerboard(
 
 def make_pyrender_camera(img_size, intrins=None):
     if intrins is not None:
-        print("USING INTRINSICS CAMERA", intrins)
         fx, fy, cx, cy = intrins
         return pyrender.IntrinsicsCamera(fx, fy, cx, cy)
 
     W, H = img_size
     focal = 0.5 * (H + W)
     yfov = 2 * np.arctan(0.5 * H / focal)
-    print("USING PERSPECTIVE CAMERA", H, W, focal)
     return pyrender.PerspectiveCamera(yfov=yfov, aspectRatio=W / H)
 
 
@@ -644,29 +640,3 @@ def get_light_poses(n_lights=5, elevation=np.pi / 3, dist=12):
     return poses
 
 
-def get_raymond_light_poses(up="z"):
-    thetas = np.pi * np.ones(3) / 6
-    phis = 2 * np.pi * np.arange(3) / 3
-
-    poses = []
-
-    for phi, theta in zip(phis, thetas):
-        xp = np.sin(theta) * np.cos(phi)
-        yp = np.sin(theta) * np.sin(phi)
-        zp = np.cos(theta)
-
-        if up == "y":
-            z = np.array([xp, zp, -yp])
-        else:
-            z = np.array([xp, yp, zp])
-        z = z / np.linalg.norm(z)
-        x = np.array([-z[1], z[0], 0.0])
-        if np.linalg.norm(x) == 0:
-            x = np.array([1.0, 0.0, 0.0])
-        x = x / np.linalg.norm(x)
-        y = np.cross(z, x)
-
-        matrix = np.eye(4)
-        matrix[:3, :3] = np.c_[x, y, z]
-        poses.append(matrix)
-    return poses
