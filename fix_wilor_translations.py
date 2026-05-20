@@ -2,12 +2,12 @@
 Fix WiLoR cam_trans scale for Dyn-HaMR compatibility.
 
 WiLoR exports cam_trans for a virtual camera with focal_length ~ 37500 px,
-but Dyn-HaMR uses the real camera (e.g. VIPE, fx ~ 757 px).
+but Dyn-HaMR uses the real camera (e.g. VIPER, fx ~ 757 px).
 This script recomputes cam_trans so the MANO wrist projects to the
 WiLoR-detected 2D keypoint under Dyn-HaMR's actual intrinsics.
 
 Usage:
-  python fix_wilor_translations.py --cameras cameras/shot-0/cameras.npz --tracks tracks/
+  python fix_wilor_translations.py --camera_dir vipe_results --tracks tracks/
 """
 
 import argparse
@@ -22,12 +22,26 @@ sys.path.insert(0, '.')
 from body_model import MANO
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--cameras', required=True, help='Path to cameras.npz')
+parser.add_argument('--camera_dir', required=True, help='Path to VIPER (or other SfM) output directory (contains intrinsics/ subdir)')
 parser.add_argument('--tracks', required=True, help='Path to tracks directory')
 args = parser.parse_args()
 
-cam_data = np.load(args.cameras, allow_pickle=True)
-fx, fy, cx, cy = cam_data['intrins'][0]
+# Locate the first intrinsics npz under <camera_dir>/intrinsics/
+intr_dir = os.path.join(args.camera_dir, 'intrinsics')
+intr_files = sorted(glob.glob(os.path.join(intr_dir, '*.npz')))
+if not intr_files:
+    # Fallback: try camera_dir itself as an npz
+    intr_files = sorted(glob.glob(os.path.join(args.camera_dir, '*.npz')))
+if not intr_files:
+    sys.exit(f"No intrinsics .npz found in {intr_dir} or {args.camera_dir}")
+
+intr_data = np.load(intr_files[0], allow_pickle=True)
+# Support both canonical format (intrins key) and VIPER raw format (data key)
+if 'intrins' in intr_data:
+    fx, fy, cx, cy = intr_data['intrins'][0]
+else:
+    fx, fy, cx, cy = intr_data['data'][0]
+print(f"Loaded intrinsics from {intr_files[0]}")
 print(f"Camera intrinsics: fx={fx:.2f}, fy={fy:.2f}, cx={cx:.2f}, cy={cy:.2f}")
 
 device = torch.device('cpu')

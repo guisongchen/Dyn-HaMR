@@ -1,10 +1,12 @@
 # Dyn-HaMR Input Specification for WiLoR Hand Track Predictions
 
-**Purpose:** Define the exact output format required from a hand pose estimator (WiLoR) so that Dyn-HaMR can load it directly. This document replaces the original HaMeR-based preprocessing pipeline.
+**Purpose:** Define the exact output format required from a hand pose estimator (WiLoR) so that Dyn-HaMR can load it directly. Camera poses come from a **separate source** (VIPER, COLMAP, etc.) and are configured independently.
 
 **Reference code:**
 - `data/tools.py` — JSON readers and interpolation logic
 - `data/dataset.py` — dataset loader and track discovery
+- `data/camera_interface.py` — canonical camera data protocol
+- `data/camera_loader_vipe.py` — VIPER raw-format camera loader
 - `fix_wilor_translations.py` — **required post-processing** to rescale WiLoR's `cam_trans` from virtual focal length (~37500px) to the real camera intrinsics
 
 ---
@@ -13,7 +15,9 @@
 
 ```
 Video → WiLoR (export_dynhamr.py) → fix_wilor_translations.py → Dyn-HaMR
-         produces tracks/ + cameras.npz   rescales cam_trans          run_opt.py
+         produces tracks/ + frames/   rescales cam_trans          run_opt.py
+
+VIPER (or other SfM) → pose & intrinsics → Dyn-HaMR camera loader
 ```
 
 ### 1.1 Step 1: WiLoR Export
@@ -28,12 +32,29 @@ This produces the directory layout described in Section 2.
 
 ### 1.2 Step 2: Fix cam_trans Scale
 
-WiLoR outputs `cam_trans` for its internal virtual camera (focal length ~37500px). Dyn-HaMR uses the real camera intrinsics (e.g. VIPE ~757px). Run the fix script to rescale:
+WiLoR outputs `cam_trans` for its internal virtual camera (focal length ~37500px). Dyn-HaMR uses the real camera intrinsics (e.g. VIPER ~757px). Run the fix script to rescale:
 ```bash
-python fix_wilor_translations.py --cameras cameras/shot-0/cameras.npz --tracks tracks/
+python fix_wilor_translations.py --camera_dir vipe_results --tracks dynhamr_out/tracks/
 ```
 
 This overwrites `cam_trans` in each `*_mano.json` in-place. **Required before running Dyn-HaMR.**
+
+### 1.3 Step 3: Configure & Run Dyn-HaMR
+
+Edit `confs/data/demo_dynhamr.yaml` to point cameras at the VIPER directory:
+```yaml
+sources:
+  images: ${data.root}/dynhamr_out/frames
+  tracks: ${data.root}/dynhamr_out/tracks
+camera:
+  source: ${data.root}/vipe_results
+  type: vipe_pose
+```
+
+Then:
+```bash
+python run_opt.py
+```
 
 ---
 
@@ -181,8 +202,9 @@ The Dyn-HaMR dataset loader enforces the following at runtime (`data/dataset.py`
 ## 7. Checklist for Integration
 
 - [ ] Run WiLoR `export_dynhamr.py` to produce `tracks/` and `frames/`
-- [ ] Place VIPE camera results as `cameras/shot-0/cameras.npz`
-- [ ] Run `fix_wilor_translations.py --cameras ... --tracks ...` to rescale `cam_trans`
+- [ ] Run VIPER (or other SfM) to produce camera poses and intrinsics
+- [ ] Run `fix_wilor_translations.py --camera_dir <vipe_dir> --tracks <tracks_dir>` to rescale `cam_trans`
+- [ ] Set `camera.source` and `camera.type` in the data config YAML
 - [ ] Ensure all rotations are **angle-axis** (not matrices or quaternions)
 - [ ] Ensure `body_pose` shape matches your MANO model (typically `(15, 3)`)
 - [ ] Ensure `is_right` is `0` for left and `1` for right, and matches the directory name
