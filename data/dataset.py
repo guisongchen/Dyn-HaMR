@@ -1,9 +1,7 @@
 import os
-import glob
 
 import imageio
 import numpy as np
-import json
 
 import torch
 from torch.utils.data import Dataset
@@ -12,10 +10,10 @@ from body_model import MANO_JOINTS
 assert len(MANO_JOINTS) == 16, f"Expected 16 MANO joints, got {len(MANO_JOINTS)}"
 
 from .tools import load_mano_preds, load_keypoints_with_interp
+from .camera_interface import CameraDataProtocol
+from .camera_loader_vipe import VIPECameraData
 
 
-SHOT_PAD = 0
-MIN_SEQ_LEN = 10
 MAX_NUM_TRACKS = 12
 MIN_TRACK_LEN = 60
 MIN_KEYP_CONF = 0.4
@@ -23,15 +21,16 @@ MIN_KEYP_CONF = 0.4
 
 def get_dataset_from_cfg(cfg):
     args = cfg.data
+    camera_cfg = args.get("camera", {"source": args.sources.get("cameras"), "type": "canonical_npz"})
     return MultiPeopleDataset(
         args.sources,
         args.seq,
         tid_spec=args.track_ids,
-        shot_idx=args.shot_idx,
         start_idx=int(args.start_idx),
         end_idx=int(args.end_idx),
         is_static=cfg.is_static,
         split_cameras=args.get("split_cameras", True),
+        camera_cfg=camera_cfg,
     )
 
 
@@ -42,30 +41,29 @@ class MultiPeopleDataset(Dataset):
         data_sources: dict,
         seq_name,
         tid_spec="all",
-        shot_idx=0,
         start_idx=0,
         end_idx=-1,
         is_static=False,
-        pad_shot=False,
         split_cameras=True,
+        camera_cfg=None,
     ):
         self.is_static = is_static
         self.seq_name = seq_name
         self.data_sources = data_sources
         self.split_cameras = split_cameras
+        self.camera_cfg = camera_cfg or {}
 
-        # select only images in the desired shot
-        img_files, _ = get_shot_img_files(
-            self.data_sources["shots"], shot_idx, pad_shot
+        img_dir = self.data_sources["images"]
+        assert os.path.isdir(img_dir)
+        img_files = sorted(
+            f for f in os.listdir(img_dir) if f.endswith((".png", ".jpg")) and not f.startswith(".")
         )
         end_idx = end_idx if end_idx > 0 else len(img_files)
         self.data_start, self.data_end = start_idx, end_idx
         img_files = img_files[start_idx:end_idx]
-        self.img_names = [get_name(f) for f in img_files]
+        self.img_names = [os.path.splitext(f)[0] for f in img_files]
         self.num_imgs = len(self.img_names)
 
-        img_dir = self.data_sources["images"]
-        assert os.path.isdir(img_dir)
         self.img_paths = [os.path.join(img_dir, f) for f in img_files]
         img_h, img_w = imageio.imread(self.img_paths[0]).shape[:2]
         self.img_size = img_w, img_h
@@ -77,7 +75,7 @@ class MultiPeopleDataset(Dataset):
             n_tracks = MAX_NUM_TRACKS
             if tid_spec.startswith("longest"):
                 n_tracks = int(tid_spec.split("-")[1])
-            # get the longest tracks in the selected shot
+            # get the longest tracks
             track_ids = sorted(os.listdir(track_root))
             track_paths = [
                 [f"{track_root}/{tid}/{name}_keypoints.json" for name in self.img_names]
@@ -238,22 +236,34 @@ class MultiPeopleDataset(Dataset):
         return obs_data
 
     def load_camera_data(self):
-        cam_dir = self.data_sources["cameras"]
+        camera_type = self.camera_cfg.get("type", "canonical_npz")
+        camera_source = self.camera_cfg["source"]
+
         data_interval = 0, -1
         if self.split_cameras:
             data_interval = self.data_start, self.data_end
         track_interval = self.start_idx, self.end_idx
-        self.cam_data = CameraData(
-            cam_dir, self.seq_len, self.img_size, self.is_static, data_interval, track_interval
-        )
+
+        if camera_type == "vipe_pose":
+            self.cam_data = VIPECameraData(
+                camera_source, self.seq_len, self.img_size, self.is_static,
+                data_interval, track_interval,
+            )
+        elif camera_type == "canonical_npz":
+            self.cam_data = CameraData(
+                camera_source, self.seq_len, self.img_size, self.is_static,
+                data_interval, track_interval,
+            )
+        else:
+            raise ValueError(f"Unknown camera type: {camera_type}")
 
     def get_camera_data(self):
         if self.cam_data is None:
-            raise ValueError
+            self.load_camera_data()
         return self.cam_data.as_dict()
 
 
-class CameraData(object):
+class CameraData(CameraDataProtocol):
     def __init__(
         self, cam_dir, seq_len, img_size, is_static, data_interval=[0, -1], track_interval=[0, -1]
     ):
@@ -327,30 +337,6 @@ def get_ternary_mask(vis_mask):
     return vis_mask
 
 
-def get_shot_img_files(shots_path, shot_idx, shot_pad=SHOT_PAD):
-    assert os.path.isfile(shots_path)
-    with open(shots_path, "r") as f:
-        shots_dict = json.load(f)
-    img_names = sorted(shots_dict.keys())
-    N = len(img_names)
-    shot_mask = np.array([shots_dict[x] == shot_idx for x in img_names])
-
-    idcs = np.where(shot_mask)[0]
-    if shot_pad > 0:  # drop the frames before/after shot change
-        raise ValueError
-        if min(idcs) > 0:
-            idcs = idcs[shot_pad:]
-        if len(idcs) > 0 and max(idcs) < N - 1:
-            idcs = idcs[:-shot_pad]
-        if len(idcs) < MIN_SEQ_LEN:
-            raise ValueError("shot is too short for optimization")
-
-        shot_mask = np.zeros(N, dtype=bool)
-        shot_mask[idcs] = 1
-
-    sel_paths = [img_names[i] for i in idcs]
-    print(f"FOUND {len(idcs)}/{len(shots_dict)} FRAMES FOR SHOT {shot_idx}")
-    return sel_paths, idcs
 
 
 def load_cameras_npz(camera_path, v):
@@ -375,24 +361,3 @@ def load_cameras_npz(camera_path, v):
 
     print(f"Loaded {N} cameras")
     return cam_R, cam_t, intrins, width, height
-
-
-def is_image(x):
-    return (x.endswith(".png") or x.endswith(".jpg")) and not x.startswith(".")
-
-
-def get_name(x):
-    return os.path.splitext(os.path.basename(x))[0]
-
-
-def split_name(x, suffix):
-    return os.path.basename(x).split(suffix)[0]
-
-
-def get_names_in_dir(d, suffix):
-    files = [split_name(x, suffix) for x in glob.glob(f"{d}/*{suffix}")]
-    return sorted(files)
-
-
-def batch_join(parent, names, suffix=""):
-    return [os.path.join(parent, f"{n}{suffix}") for n in names]
