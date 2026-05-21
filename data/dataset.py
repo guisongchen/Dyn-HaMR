@@ -340,11 +340,8 @@ def load_cameras_npz(camera_path, v):
     assert os.path.splitext(camera_path)[-1] == ".npz"
 
     cam_data = np.load(camera_path)
-    height, width, focal = (
-        int(cam_data["height"]),
-        int(cam_data["width"]),
-        float(cam_data["focal"]),
-    )
+    height = int(cam_data["height"])
+    width = int(cam_data["width"])
 
     w2c = torch.from_numpy(cam_data["w2c"])  # (N, 4, 4)
     cam_R = w2c[:, :3, :3]  # (N, 3, 3)
@@ -353,8 +350,10 @@ def load_cameras_npz(camera_path, v):
 
     if "intrins" in cam_data:
         intrins = torch.from_numpy(cam_data["intrins"].astype(np.float32))
+        if intrins.ndim == 1:
+            intrins = intrins[None].repeat(N, 1)
     else:
-        intrins = torch.tensor([focal, focal, width / 2, height / 2])[None].repeat(N, 1)
+        intrins = torch.tensor([width, width, width / 2, height / 2])[None].repeat(N, 1)
 
     print(f"Loaded {N} cameras")
     return cam_R, cam_t, intrins, width, height
