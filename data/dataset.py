@@ -15,6 +15,9 @@ from .camera_loader_vipe import VIPECameraData
 
 
 MAX_NUM_TRACKS = 12
+# Minimum track length in frames. Assumes ~30fps input, giving ~2 seconds of
+# motion — enough for temporal smoothness, shared betas estimation, and the
+# motion prior to be well-constrained. Does not adapt to actual FPS.
 MIN_TRACK_LEN = 60
 MIN_KEYP_CONF = 0.4
 

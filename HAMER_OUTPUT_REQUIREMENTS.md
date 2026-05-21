@@ -92,6 +92,8 @@ Produce one subdirectory per tracked hand, plus a directory of extracted video f
 
 ## 4. Post-Processing: Fix `cam_trans` Scale
 
+**Pre-requisite:** You must know the real camera intrinsics (`fx, fy, cx, cy` in pixels) before exporting hand-pose estimates. At a minimum, you need the focal length `fx`. These come from your camera-pose estimator's output — see `CAMERA_OUTPUT_REQUIREMENTS.md` for the expected format. Without them, `cam_trans` cannot be rescaled and the hand will project incorrectly.
+
 Most hand-pose estimators output `cam_trans` for a **virtual** camera (focal length ~3000–40000 px). Dyn-HaMR uses the **real** camera intrinsics (from SfM). The two must match, or the hand will project to the wrong location.
 
 Run the provided rescaling script after producing tracks and camera data:
