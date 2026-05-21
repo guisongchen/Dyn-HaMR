@@ -10,8 +10,8 @@ end_idx: -1
 split_cameras: True
 name: ${data.seq}-${data.track_ids}-${data.start_idx}-${data.end_idx}
 sources:
-  images: ${data.root}/dynhamr_out/frames
-  tracks: ${data.root}/dynhamr_out/tracks
+  images: ${data.root}/frames
+  tracks: ${data.root}/tracks
 camera:
-  source: ${data.root}/cameras
+  source: ${data.root}
   type: canonical_npz
