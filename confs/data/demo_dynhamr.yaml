@@ -13,5 +13,5 @@ sources:
   images: ${data.root}/dynhamr_out/frames
   tracks: ${data.root}/dynhamr_out/tracks
 camera:
-  source: ${data.root}/vipe_results
-  type: vipe_pose
+  source: ${data.root}/cameras
+  type: canonical_npz

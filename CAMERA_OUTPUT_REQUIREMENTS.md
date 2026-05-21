@@ -1,52 +1,13 @@
 # Dyn-HaMR Camera Input Specification
 
-**Audience:** Developers of external camera-pose estimators (VIPE, COLMAP, etc.).  
+**Audience:** Developers of external camera-pose estimators (COLMAP, etc.).
 **Purpose:** Define the output format your tool must produce so that Dyn-HaMR can consume it directly — no intermediate conversion.
 
-Dyn-HaMR expects camera data in one of the formats below. Choose whichever is easiest for your estimator.
+Dyn-HaMR expects a single `cameras.npz` file.
 
 ---
 
-## 1. Format A: VIPE Layout (recommended)
-
-Produce two files in separate subdirectories. Dyn-HaMR discovers them by extension — file name does not matter.
-
-```
-{output_dir}/
-├── pose/
-│   └── *.npz
-└── intrinsics/
-    └── *.npz
-```
-
-### pose/*.npz
-
-| Key    | Shape   | Dtype     | Description |
-|--------|---------|-----------|-------------|
-| `data` | (N, 4, 4) | float32 | **Camera-to-world** (C2W) homogeneous 4×4 matrices. Dyn-HaMR inverts them internally. |
-
-Each matrix has the structure `[R ∣ t; 0 0 0 1]`:
-- `R` = 3×3 rotation matrix (top-left block)
-- `t` = 3×1 translation vector (top-right column)
-- Bottom row: `[0, 0, 0, 1]`
-
-These encode the camera's position and orientation **in world space** (camera→world transform).
-
-### intrinsics/*.npz
-
-| Key    | Shape  | Dtype     | Description |
-|--------|--------|-----------|-------------|
-| `data` | (N, 4) | float32  | `[fx, fy, cx, cy]` per frame, in pixels. |
-
-- **N must equal** the number of frames in `pose/*.npz`.
-- `(fx, fy)` = focal lengths. `(cx, cy)` = principal point (usually image-width/2, image-height/2).
-- All frames may share identical intrinsics if the camera lens is fixed.
-
----
-
-## 2. Format B: Canonical `.npz`
-
-Produce a single file named `cameras.npz`:
+## Canonical Format: `cameras.npz`
 
 | Key       | Shape     | Dtype   | Description |
 |-----------|-----------|---------|-------------|
@@ -56,40 +17,31 @@ Produce a single file named `cameras.npz`:
 | `width`   | scalar     | int     | Image width in pixels |
 | `focal`   | scalar     | float   | Nominal focal length (used as fallback only) |
 
-Unlike Format A, these matrices encode the transform from **world space into camera space**. Each 4×4 has the structure `[R ∣ t; 0 0 0 1]` where `R[:3,:3]` is world→camera rotation and `t[:3]` is world→camera translation.
+Each W2C 4×4 has the structure `[R ∣ t; 0 0 0 1]`:
+- `R[:3,:3]` = world→camera rotation
+- `t[:3]` = world→camera translation
+- Bottom row: `[0, 0, 0, 1]`
+
+Dyn-HaMR inverts these internally to transform hand poses from camera space into world space.
 
 ---
 
-## 3. Which Format to Use
+## Configuration
 
-| If your estimator outputs… | Use |
-|---------------------------|-----|
-| Separate pose + intrinsics arrays in C2W convention | Format A (VIPE) |
-| A single self-contained file in W2C convention | Format B (canonical) |
-
-Dyn-HaMR's data config YAML selects the format:
 ```yaml
 camera:
-  source: /path/to/your/output_dir
-  type: vipe_pose     # Format A
-# type: canonical_npz # Format B
+  source: /path/to/your/output_dir   # directory containing cameras.npz
+  type: canonical_npz
 ```
 
 ---
 
-## 4. Coordinate Conventions
+## Coordinate Conventions
 
-| Frame       | Description |
-|-------------|-------------|
-| World       | Global reference frame. MANO hand poses live here. |
-| Camera      | Camera-local frame, **+Z = forward (depth)**. |
-
-**Format A (VIPE):** you provide C2W. Dyn-HaMR computes W2C = inv(C2W).  
-**Format B (canonical):** you provide W2C directly.
-
-Dyn-HaMR uses these transforms for two purposes:
-1. Convert initial hand predictions from camera space into world space.
-2. Project optimized world-space joints back to 2D pixels for the reprojection loss.
+| Frame  | Description |
+|--------|-------------|
+| World  | Global reference frame. MANO hand poses live here. |
+| Camera | Camera-local frame, **+Z = forward (depth)**. |
 
 The intrinsics define perspective projection:
 ```
@@ -99,15 +51,13 @@ y2d = fy * (Ycam / Zcam) + cy
 
 ---
 
-## 5. Static vs Moving Cameras
+## Static vs Moving Cameras
 
-If all cameras share the same viewpoint (e.g. tripod-mounted), your loader should mark `is_static = True`. Dyn-HaMR then disables world-scale optimization, because depth and object scale are ambiguous from a single viewpoint.
-
-Static cameras also work correctly — Dyn-HaMR's reprojection loss handles them identically.
+If all cameras share the same viewpoint (e.g. tripod-mounted), set `is_static = True`. Dyn-HaMR then disables world-scale optimization, because depth and object scale are ambiguous from a single viewpoint.
 
 ---
 
-## 6. Validation Checklist
+## Validation Checklist
 
 - [ ] Pose and intrinsics arrays have the **same number of frames (N)**.
 - [ ] N matches or exceeds the video frame count in Dyn-HaMR's image directory.

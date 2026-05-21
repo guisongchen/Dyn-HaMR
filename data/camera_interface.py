@@ -7,7 +7,7 @@ class CameraDataProtocol(Protocol):
     """
     Canonical interface for camera data consumed by the optimization pipeline.
 
-    Every camera source loader (VIPER, COLMAP, etc.) must produce an object
+    Every camera source loader (COLMAP, etc.) must produce an object
     that exposes these attributes.  External processes handle the translation
     from raw formats; this protocol is the middle-layer specification.
     """

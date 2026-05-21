@@ -11,7 +11,6 @@ assert len(MANO_JOINTS) == 16, f"Expected 16 MANO joints, got {len(MANO_JOINTS)}
 
 from .tools import load_mano_preds, load_keypoints_with_interp
 from .camera_interface import CameraDataProtocol
-from .camera_loader_vipe import VIPECameraData
 
 
 MAX_NUM_TRACKS = 12
@@ -247,12 +246,7 @@ class MultiPeopleDataset(Dataset):
             data_interval = self.data_start, self.data_end
         track_interval = self.start_idx, self.end_idx
 
-        if camera_type == "vipe_pose":
-            self.cam_data = VIPECameraData(
-                camera_source, self.seq_len, self.img_size, self.is_static,
-                data_interval, track_interval,
-            )
-        elif camera_type == "canonical_npz":
+        if camera_type == "canonical_npz":
             self.cam_data = CameraData(
                 camera_source, self.seq_len, self.img_size, self.is_static,
                 data_interval, track_interval,
