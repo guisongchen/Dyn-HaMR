@@ -1,6 +1,7 @@
 import os
 import sys
 import random
+import json
 import numpy as np
 import time
 
@@ -94,6 +95,12 @@ def run_opt(cfg, dataset, out_dir, device):
     c = time.time()
     print('Smooth optimization time: ', c - b)
 
+    export_canonical_json(
+        os.path.join(out_dir, "smooth_fit", f"{args.seq}_000300_world_results.npz"),
+        os.path.join(cfg.data.root, "hands.json"),
+        out_dir,
+    )
+
     prior_out = os.path.join(out_dir, 'prior')
     has_prior_results = os.path.isdir(prior_out) and any(
         f.endswith('_world_results.npz') for f in os.listdir(prior_out)
@@ -107,6 +114,75 @@ def run_opt(cfg, dataset, out_dir, device):
         obs_data, hand_model, cfg, cfg.data, prior_out)
     d = time.time()
     print('prior optimization time: ', d-c)
+
+
+def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
+    """Convert optimized .npz to canonical cameras.json + hands.json format."""
+    opt = np.load(opt_npz_path)
+    with open(hands_json_path) as f:
+        in_hands = json.load(f)['hands']
+
+    B, T = opt['pose_body'].shape[:2]
+
+    # --- cameras.json ---
+    cam_R = opt['cam_R'][0]  # [T, 3, 3] W2C
+    cam_t = opt['cam_t'][0]  # [T, 3]
+    w2c = np.zeros((T, 4, 4))
+    w2c[:, :3, :3] = cam_R
+    w2c[:, :3, 3] = cam_t
+    w2c[:, 3, 3] = 1.0
+
+    cameras = {
+        "num_frames": T,
+        "w2c": w2c.tolist(),
+        "intrins": opt['intrins'].tolist(),
+        "height": 1080,
+        "width": 1920,
+    }
+    cam_out = os.path.join(out_dir, "cameras.json")
+    with open(cam_out, "w") as f:
+        json.dump(cameras, f, indent=1)
+    print(f"Exported {cam_out}")
+
+    # --- hands.json ---
+    hands_out = []
+    for h in range(B):
+        ir = int(opt['is_right'][h, 0])
+        poses = opt['pose_body'][h]       # [T, 15, 3]
+        orients = opt['root_orient'][h]   # [T, 3]
+        trans = opt['trans'][h]           # [T, 3]  world space
+
+        betas = opt['betas'][h]           # [10]
+
+        in_frames = {f['frame_id']: f for f in in_hands[h]['frames']}
+
+        frames = []
+        for t in range(T):
+            in_f = in_frames.get(t, {})
+            kp = in_f.get('keypoints', {}).get('pose_keypoints_2d', [0] * 63)
+
+            frames.append({
+                "frame_id": t,
+                "mano": {
+                    "betas": betas.tolist(),
+                    "body_pose": poses[t].reshape(45).tolist(),
+                    "global_orient": orients[t].tolist(),
+                    "cam_trans": trans[t].tolist(),
+                },
+                "keypoints": {
+                    "pose_keypoints_2d": kp,
+                }
+            })
+
+        hands_out.append({
+            "is_right": ir,
+            "frames": frames,
+        })
+
+    hands_out_path = os.path.join(out_dir, "hands.json")
+    with open(hands_out_path, "w") as f:
+        json.dump({"hands": hands_out}, f, indent=1)
+    print(f"Exported {hands_out_path}")
 
 
 def load_config():
