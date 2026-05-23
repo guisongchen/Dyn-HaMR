@@ -1,5 +1,5 @@
 import os
-
+import tempfile
 import imageio
 import numpy as np
 import torch
@@ -16,76 +16,6 @@ from util.tensor import get_device, move_to, detach_all, to_torch
 from vis.output import prep_result_vis, animate_scene, make_video_grid_2x2
 from vis.tools import vis_keypoints
 from vis.viewer import init_viewer
-from geometry.mesh import vertices_to_trimesh
-LIGHT_BLUE=(0.65098039,  0.74117647,  0.85882353)
-
-def save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dirs, num_steps=-1):
-    B = len(dataset)
-    T = dataset.seq_len
-    loader = DataLoader(dataset, batch_size=B, shuffle=False)
-    device = get_device()
-    obs_data = move_to(next(iter(loader)), device)
-
-    cfg.paths.MANO_DIR = os.path.join(os.path.abspath("/".join(__file__.split("/")[:-1])), "mano")
-    mano_cfg = {k.lower(): v for k,v in dict(cfg.MANO).items()}
-    hand_model = MANO(batch_size=B*T, pose2rot=True, **mano_cfg).to(device)
-
-    for res_dict, mesh_dir in zip(res_dicts, mesh_dirs):
-        res_dict = move_to(res_dict, device)
-        scene_dict = move_to(
-            prep_result_vis(
-                res_dict,
-                obs_data["vis_mask"],
-                obs_data["track_id"],
-                hand_model,
-                temporal_smooth=cfg.temporal_smooth,
-                smooth_trans=True  # For mesh export, smooth everything
-            ),
-            "cpu",
-        )
-
-        scene_dir = mesh_dir
-        verts, joints, colors, l_faces, r_faces, is_right, bounds = scene_dict["geometry"]
-        T = len(verts)
-        times = list(range(0, T, 1))
-        flag = False
-        for t in times:
-            if len(is_right[t]) > 1:
-                flag = True
-                vv = t
-
-        if flag:
-            init_trans = (joints[vv][0][9].clone() + joints[vv][1][9].clone()) / 2
-        else:
-            init_trans = joints[0][0][9].clone()
-
-        for t in times:
-            if len(is_right[t]) > 1:
-                assert (is_right[t].cpu().numpy().tolist() == [0,1])
-
-                verts[t][0] -= init_trans
-                joints[t][0] -= init_trans
-                tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), l_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=0)
-                tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_0.obj'))
-
-                verts[t][1] -= init_trans
-                joints[t][1] -= init_trans
-                tmesh = vertices_to_trimesh(verts[t][1].detach().cpu().numpy(), r_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=1)
-                tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_1.obj'))
-
-            else:
-                assert len(is_right[t]) == 1
-                if is_right[t] == 0:
-                    verts[t][0] -= init_trans
-                    joints[t][0] -= init_trans
-                    tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), l_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=0)
-                    tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_0.obj'))
-
-                elif is_right[t] == 1:
-                    verts[t][0] -= init_trans
-                    joints[t][0] -= init_trans
-                    tmesh = vertices_to_trimesh(verts[t][0].detach().cpu().numpy(), r_faces[t].detach().cpu().numpy(), LIGHT_BLUE, is_right=1)
-                    tmesh.export(os.path.join(scene_dir, f'{str(t).zfill(6)}_1.obj'))
 
 
 def run_vis(
@@ -130,8 +60,6 @@ def run_vis(
             continue
 
         out_name = f"{save_dir}/{dataset.seq_name}_{phase}_final_{it}"
-        mesh_dir = f"{save_dir}/{phase}/{dataset.seq_name}_{it}_meshes"
-        os.makedirs(mesh_dir, exist_ok=True)
         phase_max_iters[phase] = it
 
         out_paths = [f"{out_name}_{view}{out_ext}" for view in render_views]
@@ -139,37 +67,38 @@ def run_vis(
             print("FOUND OUT PATHS", out_paths)
             continue
 
-        phase_results[phase] = out_name, mesh_dir, res
+        phase_results[phase] = out_name, res
 
     if len(phase_results) > 0:
-        out_names, mesh_dir, res_dicts = zip(*phase_results.values())
-        render_results(
-            cfg,
-            dataset,
-            res_dicts,
-            out_names,
-            render_views=render_views,
-            render_layers=render_layers,
-            save_frames=save_frames,
-            **kwargs,
-        )
-        save_meshes_all(cfg, dataset, res_dicts, dev_id, mesh_dir)
-
-    if make_grid:
-        for phase, it in phase_max_iters.items():
-            grid_path = f"{save_dir}/{dataset.seq_name}_{phase}_grid.mp4"
-            vid_paths = [
-                f"{save_dir}/{dataset.seq_name}_{phase}_final_{it}_src_cam.mp4",
-                f"{save_dir}/{dataset.seq_name}_{phase}_final_{it}_front.mp4",
-                f"{save_dir}/{dataset.seq_name}_{phase}_final_{it}_above.mp4",
-                f"{save_dir}/{dataset.seq_name}_{phase}_final_{it}_side.mp4",
-            ]
-            make_video_grid_2x2(
-                grid_path,
-                vid_paths,
-                fps=cfg.fps,
-                overwrite=True,
+        with tempfile.TemporaryDirectory() as tmpdir:
+            out_names, res_dicts = zip(*phase_results.values())
+            tmp_names = [f"{tmpdir}/{dataset.seq_name}_{phase}_final_{it}" for phase, it in phase_max_iters.items()]
+            render_results(
+                cfg,
+                dataset,
+                res_dicts,
+                tmp_names,
+                render_views=render_views,
+                render_layers=render_layers,
+                save_frames=save_frames,
+                **kwargs,
             )
+
+            if make_grid:
+                for phase, it in phase_max_iters.items():
+                    grid_path = f"{save_dir}/{dataset.seq_name}_{phase}_grid.mp4"
+                    vid_paths = [
+                        f"{tmpdir}/{dataset.seq_name}_{phase}_final_{it}_src_cam.mp4",
+                        f"{tmpdir}/{dataset.seq_name}_{phase}_final_{it}_front.mp4",
+                        f"{tmpdir}/{dataset.seq_name}_{phase}_final_{it}_above.mp4",
+                        f"{tmpdir}/{dataset.seq_name}_{phase}_final_{it}_side.mp4",
+                    ]
+                    make_video_grid_2x2(
+                        grid_path,
+                        vid_paths,
+                        fps=cfg.fps,
+                        overwrite=True,
+                    )
 
 
 def get_input_dict(dataset):

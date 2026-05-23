@@ -3,18 +3,29 @@
 **Audience:** Developers of external camera-pose estimators (COLMAP, etc.).
 **Purpose:** Define the output format your tool must produce so that Dyn-HaMR can consume it directly — no intermediate conversion.
 
-Dyn-HaMR expects a single `cameras.npz` file.
+Dyn-HaMR expects a single `cameras.json` file.
 
 ---
 
-## Canonical Format: `cameras.npz`
+## Canonical Format: `cameras.json`
 
-| Key       | Shape     | Dtype   | Description |
-|-----------|-----------|---------|-------------|
-| `w2c`     | (N, 4, 4)  | float32 | **World-to-camera** (W2C) homogeneous 4×4 matrices |
-| `intrins` | (4,)     | float32  | `[fx, fy, cx, cy]` in pixels. Same for all frames. |
-| `height`  | scalar     | int      | Image height in pixels. Used to scale intrinsics to actual frame size. |
-| `width`   | scalar     | int      | Image width in pixels. Used to scale intrinsics to actual frame size. |
+```json
+{
+  "num_frames": N,
+  "w2c": [[...], ...],
+  "intrins": [fx, fy, cx, cy],
+  "height": 1080,
+  "width": 1920
+}
+```
+
+| Key          | Shape     | Type   | Description |
+|--------------|-----------|--------|-------------|
+| `num_frames` | scalar    | int    | Total number of frames (N). Must match `len(w2c)`. |
+| `w2c`        | [N, 4, 4] | float (JSON number array) | **World-to-camera** (W2C) homogeneous 4×4 matrices |
+| `intrins`    | [4]       | float (JSON number array) | `[fx, fy, cx, cy]` in pixels. Same for all frames. |
+| `height`     | scalar    | int    | Image height in pixels. Used to scale intrinsics to actual frame size. |
+| `width`      | scalar    | int    | Image width in pixels. Used to scale intrinsics to actual frame size. |
 
 Each W2C 4×4 has the structure `[R ∣ t; 0 0 0 1]`:
 - `R[:3,:3]` = world→camera rotation
@@ -29,7 +40,7 @@ Dyn-HaMR inverts these internally to transform hand poses from camera space into
 
 ```yaml
 camera:
-  source: /path/to/your/output_dir   # directory containing cameras.npz
+  source: /path/to/your/output_dir   # directory containing cameras.json
   type: canonical_npz
 ```
 

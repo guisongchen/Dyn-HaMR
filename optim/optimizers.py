@@ -28,10 +28,12 @@ class StageOptimizer(object):
         lr=1.0,
         lbfgs_max_iter=20,
         vis_every=-1,
+        save_results=True,
         **kwargs,
     ):
         self.name = name
         self.model = model
+        self._save_results = save_results
 
         self.set_opt_vars(param_names)
 
@@ -94,9 +96,11 @@ class StageOptimizer(object):
 
     def run(self, obs_data, num_iters, out_dir, vis=None):
         self.cur_step = 0
-        res_dir = os.path.join(out_dir, self.name)
-        os.makedirs(res_dir, exist_ok=True)
         seq_name = obs_data["seq_name"][0]
+
+        res_dir = os.path.join(out_dir, self.name)
+        if self._save_results:
+            os.makedirs(res_dir, exist_ok=True)
 
 
         self._obs_data = obs_data
@@ -115,7 +119,8 @@ class StageOptimizer(object):
                 raise ValueError
 
         self.cur_step = num_iters
-        self.save_results(res_dir, seq_name)
+        if self._save_results:
+            self.save_results(res_dir, seq_name)
         self.vis_result(res_dir, obs_data, vis)
 
 

@@ -26,22 +26,32 @@ parser.add_argument('--camera_dir', required=True, help='Path to directory conta
 parser.add_argument('--tracks', required=True, help='Path to tracks directory')
 args = parser.parse_args()
 
-# Look for cameras.npz first, then fall back to any .npz in directory
+# Look for cameras.json first, then cameras.npz, then any .npz in directory
+cam_json = os.path.join(args.camera_dir, 'cameras.json')
 cam_npz = os.path.join(args.camera_dir, 'cameras.npz')
-if os.path.isfile(cam_npz):
+if os.path.isfile(cam_json):
+    with open(cam_json) as f:
+        cam_data = json.load(f)
+    fx, fy, cx, cy = cam_data['intrins']
+    print(f"Loaded intrinsics from {cam_json}")
+elif os.path.isfile(cam_npz):
     intr_files = [cam_npz]
+    intr_data = np.load(intr_files[0], allow_pickle=True)
+    if 'intrins' in intr_data:
+        fx, fy, cx, cy = intr_data['intrins'][0]
+    else:
+        fx, fy, cx, cy = intr_data['data'][0]
+    print(f"Loaded intrinsics from {cam_npz}")
 else:
     intr_files = sorted(glob.glob(os.path.join(args.camera_dir, '*.npz')))
-if not intr_files:
-    sys.exit(f"No cameras.npz or .npz files found in {args.camera_dir}")
-
-intr_data = np.load(intr_files[0], allow_pickle=True)
-# Support canonical format (intrins key) or raw ndarray (data key)
-if 'intrins' in intr_data:
-    fx, fy, cx, cy = intr_data['intrins'][0]
-else:
-    fx, fy, cx, cy = intr_data['data'][0]
-print(f"Loaded intrinsics from {intr_files[0]}")
+    if not intr_files:
+        sys.exit(f"No cameras.json/.npz found in {args.camera_dir}")
+    intr_data = np.load(intr_files[0], allow_pickle=True)
+    if 'intrins' in intr_data:
+        fx, fy, cx, cy = intr_data['intrins'][0]
+    else:
+        fx, fy, cx, cy = intr_data['data'][0]
+    print(f"Loaded intrinsics from {intr_files[0]}")
 print(f"Camera intrinsics: fx={fx:.2f}, fy={fy:.2f}, cx={cx:.2f}, cy={cy:.2f}")
 
 device = torch.device('cpu')

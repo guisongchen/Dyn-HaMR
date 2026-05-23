@@ -123,29 +123,45 @@ def load_camera_json(path):
 
     with open(path, "r") as f:
         cam_data = json.load(f)
+
+    if "w2c" in cam_data:
+        w2c = torch.tensor(cam_data["w2c"])
+        R = w2c[:, :3, :3]
+        t = w2c[:, :3, 3]
+        intrins = torch.tensor(cam_data["intrins"], dtype=torch.float32)
+        if intrins.ndim == 1:
+            intrins = intrins[None].expand(len(w2c), 4)
+        return R.float(), t.float(), intrins.float()
+
     R = torch.as_tensor(cam_data["rotation"]).reshape(-1, 3, 3)
     t = torch.as_tensor(cam_data["translation"])
     intrins = torch.as_tensor(cam_data["intrinsics"])
     return R.float(), t.float(), intrins.float()
 
 
-def save_camera_json(path, cam_R, cam_t, intrins):
+def save_camera_json(path, cam_R, cam_t, intrins, height=1080, width=1920):
     """
     :param path
-    :param cam_R (N, 3, 3)
-    :param cam_t (N, 3)
-    :param intrins (N, 4)
+    :param cam_R (N, 3, 3)  world-to-camera rotation
+    :param cam_t (N, 3)     world-to-camera translation
+    :param intrins (N, 4)   [fx, fy, cx, cy]
+    :param height           image height
+    :param width            image width
     """
     N = len(cam_R)
-    T = torch.tensor([[1, 0, 0], [0, -1, 0], [0, 0, -1]], dtype=torch.float32)
-    cam_R = torch.einsum("ij,bjk->bik", T, cam_R)
-    cam_t = torch.einsum("ij,bj->bi", T, cam_t)
+    w2c = torch.zeros(N, 4, 4)
+    w2c[:, :3, :3] = cam_R
+    w2c[:, :3, 3] = cam_t
+    w2c[:, 3, 3] = 1.0
+
     with open(path, "w") as f:
         json.dump(
             {
-                "rotation": cam_R.reshape(N, 9).tolist(),
-                "translation": cam_t.tolist(),
-                "intrinsics": intrins.tolist(),
+                "num_frames": N,
+                "w2c": w2c.tolist(),
+                "intrins": intrins[0].tolist() if intrins.ndim > 1 else intrins.tolist(),
+                "height": height,
+                "width": width,
             },
             f,
             indent=1,

@@ -1,3 +1,4 @@
+import json
 import os
 
 import imageio
@@ -9,7 +10,7 @@ from torch.utils.data import Dataset
 from body_model import MANO_JOINTS
 assert len(MANO_JOINTS) == 16, f"Expected 16 MANO joints, got {len(MANO_JOINTS)}"
 
-from .tools import load_mano_preds, load_keypoints_with_interp
+from .tools import load_mano_preds, load_keypoints_with_interp, load_combined_hands
 from .camera_interface import CameraDataProtocol
 
 
@@ -33,6 +34,7 @@ def get_dataset_from_cfg(cfg):
         is_static=cfg.is_static,
         split_cameras=args.get("split_cameras", True),
         camera_cfg=camera_cfg,
+        hands_source=args.sources.get("hands"),
     )
 
 
@@ -48,26 +50,131 @@ class MultiPeopleDataset(Dataset):
         is_static=False,
         split_cameras=True,
         camera_cfg=None,
+        hands_source=None,
     ):
         self.is_static = is_static
         self.seq_name = seq_name
         self.data_sources = data_sources
         self.split_cameras = split_cameras
         self.camera_cfg = camera_cfg or {}
+        self.hands_source = hands_source
 
         img_dir = self.data_sources["images"]
-        assert os.path.isdir(img_dir)
-        img_files = sorted(
-            f for f in os.listdir(img_dir) if f.endswith((".png", ".jpg")) and not f.startswith(".")
-        )
-        end_idx = end_idx if end_idx > 0 else len(img_files)
-        self.data_start, self.data_end = start_idx, end_idx
-        img_files = img_files[start_idx:end_idx]
-        self.img_names = [os.path.splitext(f)[0] for f in img_files]
-        self.num_imgs = len(self.img_names)
+        self.img_source = img_dir
+        use_combined_hands = hands_source and os.path.isfile(hands_source)
 
-        self.img_paths = [os.path.join(img_dir, f) for f in img_files]
-        img_h, img_w = imageio.imread(self.img_paths[0]).shape[:2]
+        if use_combined_hands:
+            self._init_from_combined(img_dir, tid_spec, start_idx, end_idx)
+        else:
+            self._init_from_files(img_dir, tid_spec, start_idx, end_idx)
+
+        self.data_dict = {}
+        self.cam_data = None
+
+    def _prepare_images(self, total_frames, start_idx, end_idx):
+        src = self.img_source
+        if os.path.isdir(src):
+            img_files = sorted(
+                f for f in os.listdir(src) if f.endswith((".png", ".jpg")) and not f.startswith(".")
+            )
+            if img_files:
+                end_idx = end_idx if end_idx > 0 else len(img_files)
+                data_start, data_end = start_idx, end_idx
+                img_files = img_files[start_idx:end_idx]
+                img_names = [os.path.splitext(f)[0] for f in img_files]
+                img_paths = [os.path.join(src, f) for f in img_files]
+                img_h, img_w = imageio.imread(img_paths[0]).shape[:2]
+                return img_names, img_paths, img_w, img_h, data_start, data_end
+
+        if os.path.isfile(src) and src.endswith((".mp4", ".avi", ".mov", ".mkv")):
+            cache_dir = os.path.join(os.path.dirname(src), "frames")
+            os.makedirs(cache_dir, exist_ok=True)
+            n_frames_to_extract = end_idx if end_idx > 0 else total_frames
+            existing = sorted(
+                f for f in os.listdir(cache_dir) if f.endswith((".png", ".jpg"))
+            )
+            if len(existing) >= n_frames_to_extract:
+                img_files = existing[start_idx:n_frames_to_extract]
+            else:
+                reader = imageio.get_reader(src)
+                img_files = []
+                for i, frame in enumerate(reader):
+                    if i >= n_frames_to_extract:
+                        break
+                    if i < start_idx:
+                        continue
+                    fname = f"{i:06d}.jpg"
+                    fpath = os.path.join(cache_dir, fname)
+                    if not os.path.isfile(fpath):
+                        imageio.imwrite(fpath, frame)
+                    img_files.append(fname)
+                reader.close()
+
+            img_h, img_w = imageio.imread(os.path.join(cache_dir, img_files[0])).shape[:2]
+            img_names = [os.path.splitext(f)[0] for f in img_files]
+            img_paths = [os.path.join(cache_dir, f) for f in img_files]
+            data_start, data_end = start_idx, start_idx + len(img_files)
+            return img_names, img_paths, img_w, img_h, data_start, data_end
+
+        cam_source = os.path.join(self.camera_cfg.get("source", ""), "cameras.json")
+        cam_height = 1080
+        cam_width = 1920
+        if os.path.isfile(cam_source):
+            with open(cam_source) as f:
+                cam_data = json.load(f)
+            cam_height = cam_data.get("height", 1080)
+            cam_width = cam_data.get("width", 1920)
+        data_start, data_end = start_idx, end_idx if end_idx > 0 else total_frames
+        img_names = [f"{i:06d}" for i in range(data_start, data_end)]
+        img_paths = []
+        img_w, img_h = cam_width, cam_height
+        return img_names, img_paths, img_w, img_h, data_start, data_end
+
+    def _init_from_combined(self, img_dir, tid_spec, start_idx, end_idx):
+        with open(self.hands_source) as f:
+            hands_data = json.load(f)
+
+        hands = hands_data["hands"]
+        hands = sorted(hands, key=lambda h: h["is_right"])
+        self.n_tracks = len(hands)
+        self.track_ids = [str(i) for i in range(self.n_tracks)]
+
+        frame_ids = []
+        for hand in hands:
+            for frame in hand["frames"]:
+                frame_ids.append(frame["frame_id"])
+        all_frame_ids = sorted(set(frame_ids))
+        total_frames = max(all_frame_ids) + 1 if all_frame_ids else 0
+
+        self.img_names, self.img_paths, img_w, img_h, self.data_start, self.data_end = \
+            self._prepare_images(total_frames, start_idx, end_idx)
+
+        self.num_imgs = len(self.img_names)
+        self.img_size = img_w, img_h
+        print(f"USING TOTAL {self.num_imgs} {img_w}x{img_h} IMGS")
+
+        self.track_vis_masks = []
+        for hand in hands:
+            frame_set = {f["frame_id"] for f in hand["frames"]}
+            vis_mask = np.array([i in frame_set for i in range(self.data_start, self.data_end)])
+            self.track_vis_masks.append(vis_mask)
+
+        sidx = self.data_start
+        eidx = self.data_end
+        self.start_idx = sidx
+        self.end_idx = eidx
+        self.seq_len = eidx - sidx
+        self.seq_intervals = [(sidx, eidx) for _ in range(self.n_tracks)]
+
+        self.sel_img_paths = self.img_paths[sidx - self.data_start:eidx - self.data_start] if self.img_paths else []
+        self.sel_img_names = self.img_names[sidx - self.data_start:eidx - self.data_start]
+
+    def _init_from_files(self, img_dir, tid_spec, start_idx, end_idx):
+        self.img_names, self.img_paths, img_w, img_h, self.data_start, self.data_end = \
+            self._prepare_images(5000, start_idx, end_idx)
+        assert self.img_paths, "No image frames found"
+
+        self.num_imgs = len(self.img_names)
         self.img_size = img_w, img_h
         print(f"USING TOTAL {self.num_imgs} {img_w}x{img_h} IMGS")
 
@@ -137,9 +244,8 @@ class MultiPeopleDataset(Dataset):
         if len(self.data_dict) > 0:
             return
 
-        # load camera data
         self.load_camera_data()
-        # get data for each track
+
         data_out = {
             "mask_paths": [],
             "floor_plane": [],
@@ -153,47 +259,72 @@ class MultiPeopleDataset(Dataset):
             "is_right": []
         }
 
-        # create batches of sequences
-        # each batch is a track for a person
         T = self.seq_len
         sidx, eidx = self.start_idx, self.end_idx
-        for i, tid in enumerate(self.track_ids):
-            if len(self.track_ids) == 2:
-                assert int(i) == int(tid), f'{i}/{tid}/{self.track_ids}'
-            # load mask of visible frames for this track
-            vis_mask = self.track_vis_masks[i][sidx:eidx]  # (T)
-            vis_idcs = np.where(vis_mask)[0]
-            track_s, track_e = min(vis_idcs), max(vis_idcs) + 1
-            data_out["track_interval"].append([track_s, track_e])
 
-            vis_mask = get_ternary_mask(vis_mask)
-            data_out["vis_mask"].append(vis_mask)
+        if self.hands_source and os.path.isfile(self.hands_source):
+            all_joints2d, all_pose, all_orient, all_trans, all_betas, all_is_right_values, all_vis_masks = \
+                load_combined_hands(self.hands_source, self.data_end, sidx, eidx, interp=interp_input)
 
-            # load 2d keypoints for visible frames with interpolation
-            kp_paths = [
-                f"{self.track_dirs[i]}/{x}_keypoints.json" for x in self.sel_img_names
-            ]
-            # (T, J, 3) (x, y, conf) - with interpolation for missing frames
-            joints2d_data = load_keypoints_with_interp(kp_paths, interp=interp_input)
-            joints2d_data[:, :, 2] = 1.0
-            joints2d_data[
-                np.repeat(joints2d_data[:, :, [2]] < MIN_KEYP_CONF, 3, axis=2)
-            ] = 0
-            data_out["joints2d"].append(joints2d_data)
+            for i in range(self.n_tracks):
+                vis_mask = self.track_vis_masks[i][sidx:eidx]
+                vis_idcs = np.where(vis_mask)[0]
+                if len(vis_idcs) > 0:
+                    track_s, track_e = min(vis_idcs), max(vis_idcs) + 1
+                else:
+                    track_s, track_e = 0, T
 
-            # load single image mano predictions
-            pred_paths = [
-                f"{self.track_dirs[i]}/{x}_mano.json" for x in self.sel_img_names
-            ]
-            pose_init, orient_init, trans_init, betas_init, is_right = load_mano_preds(
-                pred_paths, tid=tid, interp=interp_input
-            )
+                data_out["track_interval"].append([track_s, track_e])
+                data_out["vis_mask"].append(get_ternary_mask(vis_mask))
 
-            data_out["init_body_pose"].append(pose_init)
-            data_out["init_body_shape"].append(betas_init)
-            data_out["init_root_orient"].append(orient_init)
-            data_out["init_trans"].append(trans_init)
-            data_out['is_right'].append(is_right)
+                joints2d_data = all_joints2d[i]
+                joints2d_data[:, :, 2] = 1.0
+                joints2d_data[
+                    np.repeat(joints2d_data[:, :, [2]] < MIN_KEYP_CONF, 3, axis=2)
+                ] = 0
+                data_out["joints2d"].append(joints2d_data)
+
+                data_out["init_body_pose"].append(all_pose[i])
+                data_out["init_body_shape"].append(all_betas[i])
+                data_out["init_root_orient"].append(all_orient[i])
+                data_out["init_trans"].append(all_trans[i])
+
+                is_right_arr = np.full(T, all_is_right_values[i], dtype=np.float32)
+                data_out["is_right"].append(is_right_arr)
+        else:
+            for i, tid in enumerate(self.track_ids):
+                if len(self.track_ids) == 2:
+                    assert int(i) == int(tid), f'{i}/{tid}/{self.track_ids}'
+                vis_mask = self.track_vis_masks[i][sidx:eidx]
+                vis_idcs = np.where(vis_mask)[0]
+                track_s, track_e = min(vis_idcs), max(vis_idcs) + 1
+                data_out["track_interval"].append([track_s, track_e])
+
+                vis_mask = get_ternary_mask(vis_mask)
+                data_out["vis_mask"].append(vis_mask)
+
+                kp_paths = [
+                    f"{self.track_dirs[i]}/{x}_keypoints.json" for x in self.sel_img_names
+                ]
+                joints2d_data = load_keypoints_with_interp(kp_paths, interp=interp_input)
+                joints2d_data[:, :, 2] = 1.0
+                joints2d_data[
+                    np.repeat(joints2d_data[:, :, [2]] < MIN_KEYP_CONF, 3, axis=2)
+                ] = 0
+                data_out["joints2d"].append(joints2d_data)
+
+                pred_paths = [
+                    f"{self.track_dirs[i]}/{x}_mano.json" for x in self.sel_img_names
+                ]
+                pose_init, orient_init, trans_init, betas_init, is_right = load_mano_preds(
+                    pred_paths, tid=tid, interp=interp_input
+                )
+
+                data_out["init_body_pose"].append(pose_init)
+                data_out["init_body_shape"].append(betas_init)
+                data_out["init_root_orient"].append(orient_init)
+                data_out["init_trans"].append(trans_init)
+                data_out['is_right'].append(is_right)
 
         self.data_dict = data_out
 
@@ -246,10 +377,10 @@ class MultiPeopleDataset(Dataset):
             data_interval = self.data_start, self.data_end
         track_interval = self.start_idx, self.end_idx
 
-        if camera_type == "canonical_npz":
+        if camera_type in ("canonical_npz", "canonical_json"):
             self.cam_data = CameraData(
                 camera_source, self.seq_len, self.img_size, self.is_static,
-                data_interval, track_interval,
+                data_interval, track_interval, camera_type=camera_type,
             )
         else:
             raise ValueError(f"Unknown camera type: {camera_type}")
@@ -262,19 +393,19 @@ class MultiPeopleDataset(Dataset):
 
 class CameraData(CameraDataProtocol):
     def __init__(
-        self, cam_dir, seq_len, img_size, is_static, data_interval=[0, -1], track_interval=[0, -1]
+        self, cam_dir, seq_len, img_size, is_static, data_interval=[0, -1], track_interval=[0, -1],
+        camera_type="canonical_npz",
     ):
         self.img_size = img_size
         self.cam_dir = cam_dir
         self.is_static = is_static
+        self.camera_type = camera_type
 
-        # inclusive exclusive
         data_start, data_end = data_interval
         if data_end < 0:
             data_end += seq_len + 1
         data_len = data_end - data_start
 
-        # start and end indices are with respect to the data interval
         sidx, eidx = track_interval
         if eidx < 0:
             eidx += data_len + 1
@@ -285,12 +416,30 @@ class CameraData(CameraDataProtocol):
         self.load_data()
 
     def load_data(self):
-        # camera info
         sidx, eidx = self.sidx, self.eidx
         img_w, img_h = self.img_size
-        fpath = os.path.join(self.cam_dir, "cameras.npz")
-        if os.path.isfile(fpath) and not self.is_static:
-            cam_R, cam_t, intrins, width, height = load_cameras_npz(fpath, self.seq_len)
+
+        if self.is_static:
+            default_focal = 0.5 * (img_h + img_w)
+            self.intrins = torch.tensor(
+                [default_focal, default_focal, img_w / 2, img_h / 2]
+            )[None].repeat(self.seq_len, 1)
+            self.cam_R = torch.eye(3)[None].repeat(self.seq_len, 1, 1)
+            self.cam_t = torch.zeros(self.seq_len, 3)
+            return
+
+        json_path = os.path.join(self.cam_dir, "cameras.json")
+        npz_path = os.path.join(self.cam_dir, "cameras.npz")
+
+        loaded = False
+        if self.camera_type == "canonical_json" and os.path.isfile(json_path):
+            cam_R, cam_t, intrins, width, height = load_cameras_json(json_path, self.seq_len)
+            loaded = True
+        elif os.path.isfile(npz_path):
+            cam_R, cam_t, intrins, width, height = load_cameras_npz(npz_path, self.seq_len)
+            loaded = True
+
+        if loaded:
             scale = img_w / width
             self.intrins = scale * intrins[sidx:eidx]
             t0 = -cam_t[sidx:sidx+1] + torch.randn(3) * 0.1
@@ -301,7 +450,6 @@ class CameraData(CameraDataProtocol):
             self.intrins = torch.tensor(
                 [default_focal, default_focal, img_w / 2, img_h / 2]
             )[None].repeat(self.seq_len, 1)
-
             self.cam_R = torch.eye(3)[None].repeat(self.seq_len, 1, 1)
             self.cam_t = torch.zeros(self.seq_len, 3)
 
@@ -343,9 +491,9 @@ def load_cameras_npz(camera_path, v):
     height = int(cam_data["height"])
     width = int(cam_data["width"])
 
-    w2c = torch.from_numpy(cam_data["w2c"])  # (N, 4, 4)
-    cam_R = w2c[:, :3, :3]  # (N, 3, 3)
-    cam_t = w2c[:, :3, 3]  # (N, 3)
+    w2c = torch.from_numpy(cam_data["w2c"])
+    cam_R = w2c[:, :3, :3]
+    cam_t = w2c[:, :3, 3]
     N = len(w2c)
 
     if "intrins" in cam_data:
@@ -356,4 +504,24 @@ def load_cameras_npz(camera_path, v):
         intrins = torch.tensor([width, width, width / 2, height / 2])[None].repeat(N, 1)
 
     print(f"Loaded {N} cameras")
+    return cam_R, cam_t, intrins, width, height
+
+
+def load_cameras_json(json_path, v):
+    with open(json_path) as f:
+        cam_data = json.load(f)
+
+    height = cam_data["height"]
+    width = cam_data["width"]
+
+    w2c = torch.tensor(cam_data["w2c"])
+    cam_R = w2c[:, :3, :3]
+    cam_t = w2c[:, :3, 3]
+    N = len(w2c)
+
+    intrins = torch.tensor(cam_data["intrins"], dtype=torch.float32)
+    if intrins.ndim == 1:
+        intrins = intrins[None].repeat(N, 1)
+
+    print(f"Loaded {N} cameras from JSON")
     return cam_R, cam_t, intrins, width, height

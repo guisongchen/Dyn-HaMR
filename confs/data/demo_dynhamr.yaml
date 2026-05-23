@@ -10,8 +10,9 @@ end_idx: -1
 split_cameras: True
 name: ${data.seq}-${data.track_ids}-${data.start_idx}-${data.end_idx}
 sources:
-  images: ${data.root}/frames
+  images: ${data.root}/video.mp4
   tracks: ${data.root}/tracks
+  hands: ${data.root}/hands.json
 camera:
   source: ${data.root}
-  type: canonical_npz
+  type: canonical_json

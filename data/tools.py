@@ -149,6 +149,97 @@ def load_mano_preds(pred_paths, tid, interp=True, num_betas=10):
     if not interp:
         return pose, orient, trans, betas, is_right
 
+
+def load_combined_hands(hands_path, seq_len, start_idx, end_idx, interp=True, num_betas=10):
+    """
+    Load hand data from combined hands.json format (new canonical format).
+
+    Args:
+        hands_path: path to hands.json
+        seq_len: total sequence length (number of frames)
+        start_idx: start frame index of the sub-sequence
+        end_idx: end frame index of the sub-sequence
+        interp: whether to interpolate missing frames
+        num_betas: number of MANO shape parameters
+
+    Returns:
+        all_joints2d: list of (T, J, 3) arrays per track
+        all_pose: list of (T, 15, 3) arrays per track
+        all_orient: list of (T, 3) arrays per track
+        all_trans: list of (T, 3) arrays per track
+        all_betas: list of (T, 10) arrays per track
+        all_is_right: list of scalar values per track
+        all_vis_masks: list of (T,) boolean arrays per track
+    """
+    with open(hands_path) as f:
+        data = json.load(f)
+
+    hands = data["hands"]
+
+    all_joints2d = []
+    all_pose = []
+    all_orient = []
+    all_trans = []
+    all_betas = []
+    all_is_right = []
+    all_vis_masks = []
+
+    for hand in hands:
+        is_right = hand["is_right"]
+        frames = hand["frames"]
+        frames = sorted(frames, key=lambda f: f["frame_id"])
+
+        T = end_idx - start_idx
+        pose_init = np.zeros((T, 15, 3), dtype=np.float32)
+        orient_init = np.zeros((T, 3), dtype=np.float32)
+        trans_init = np.zeros((T, 3), dtype=np.float32)
+        betas_init = np.zeros((T, num_betas), dtype=np.float32)
+        joints2d_init = np.zeros((T, 21, 3), dtype=np.float32)
+        vis_mask = np.zeros(T, dtype=bool)
+
+        for frame in frames:
+            fid = frame["frame_id"]
+            local_fid = fid - start_idx
+            if local_fid < 0 or local_fid >= T:
+                continue
+
+            mano = frame["mano"]
+            kp = frame["keypoints"]
+
+            pose_init[local_fid] = np.array(mano["body_pose"], dtype=np.float32).reshape(15, 3)
+            orient_init[local_fid] = np.array(mano["global_orient"], dtype=np.float32)
+            trans_init[local_fid] = np.array(mano["cam_trans"], dtype=np.float32)
+            betas_init[local_fid] = np.array(mano["betas"], dtype=np.float32)
+            joints2d_init[local_fid] = np.array(kp["pose_keypoints_2d"], dtype=np.float32).reshape(21, 3)
+            vis_mask[local_fid] = True
+
+        if interp:
+            vis_idcs = np.where(vis_mask)[0]
+            if len(vis_idcs) >= 2:
+                orient_slerp = Slerp(vis_idcs, Rotation.from_rotvec(orient_init[vis_idcs]))
+                trans_interp = interp1d(vis_idcs, trans_init[vis_idcs], axis=0)
+                betas_interp = interp1d(vis_idcs, betas_init[vis_idcs], axis=0)
+
+                tmin, tmax = min(vis_idcs), max(vis_idcs) + 1
+                times = np.arange(tmin, tmax)
+                orient_init[times] = orient_slerp(times).as_rotvec()
+                trans_init[times] = trans_interp(times)
+                betas_init[times] = betas_interp(times)
+
+                for i in range(pose_init.shape[1]):
+                    pose_slerp = Slerp(vis_idcs, Rotation.from_rotvec(pose_init[vis_idcs, i]))
+                    pose_init[times, i] = pose_slerp(times).as_rotvec()
+
+        all_joints2d.append(joints2d_init)
+        all_pose.append(pose_init)
+        all_orient.append(orient_init)
+        all_trans.append(trans_init)
+        all_betas.append(betas_init)
+        all_is_right.append(is_right)
+        all_vis_masks.append(vis_mask)
+
+    return all_joints2d, all_pose, all_orient, all_trans, all_betas, all_is_right, all_vis_masks
+
     # interpolate the occluded tracks
     orient_slerp = Slerp(vis_idcs, Rotation.from_rotvec(orient[vis_idcs]))
     trans_interp = interp1d(vis_idcs, trans[vis_idcs], axis=0)

@@ -17,12 +17,6 @@ from optim.optimizers import (
     RootOptimizer,
     SmoothOptimizer
 )
-from optim.output import (
-    save_track_info,
-    save_camera_json,
-    save_input_poses,
-    save_initial_predictions,
-)
 from vis.viewer import init_viewer
 from body_model import MANO
 from util.tensor import get_device, move_to
@@ -34,9 +28,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'HMP'))
 N_STAGES = 3
 
 def set_seed(seed=42):
-    """
-    Set random seed for reproducibility
-    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -56,15 +47,8 @@ def run_opt(cfg, dataset, out_dir, device):
     obs_data = move_to(next(iter(loader)), device)
     cam_data = move_to(dataset.get_camera_data(), device)
 
-    cam_R, cam_t = dataset.cam_data.cam2world()
-    intrins = dataset.cam_data.intrins
-    save_camera_json(f"cameras.json", cam_R, cam_t, intrins)
-
-    # check whether the cameras are static
-    # if static, cannot optimize scale
     cfg.model.opt_scale &= not dataset.cam_data.is_static
 
-    # loss weights for all stages
     all_loss_weights = cfg.optim.loss_weights
     assert all(len(wts) == N_STAGES for wts in all_loss_weights.values())
     stage_loss_weights = [
@@ -76,9 +60,6 @@ def run_opt(cfg, dataset, out_dir, device):
     mano_cfg = {k.lower(): v for k, v in dict(cfg.MANO).items()}
     hand_model = MANO(batch_size=B * T, pose2rot=True, **mano_cfg).to(device)
 
-    ################################################################
-    ######################## optimization ##########################
-    ################################################################
     margs = cfg.model
     base_model = BaseSceneModel(
         B, T, hand_model, None, **margs
@@ -86,10 +67,6 @@ def run_opt(cfg, dataset, out_dir, device):
 
     base_model.initialize(obs_data, cam_data)
     base_model.to(device)
-
-    # save initial results for later visualization
-    save_input_poses(dataset, os.path.join(out_dir, "hamer"), args.seq)
-    save_initial_predictions(base_model, os.path.join(out_dir, "init"), args.seq)
 
     opts = cfg.optim.options
     vis_scale = 0.25
@@ -105,20 +82,18 @@ def run_opt(cfg, dataset, out_dir, device):
     print("OPTIMIZER OPTIONS:", opts)
 
     a = time.time()
-    optim = RootOptimizer(base_model, stage_loss_weights, **opts)
+    optim = RootOptimizer(base_model, stage_loss_weights, save_results=False, **opts)
     optim.run(obs_data, cfg.optim.root.num_iters, out_dir, vis)
 
-    args = cfg.optim.smooth
     b = time.time()
     print('root optimization time: ', b - a)
     optim = SmoothOptimizer(
-        base_model, stage_loss_weights, opt_scale=args.opt_scale, **opts
+        base_model, stage_loss_weights, opt_scale=cfg.optim.smooth.opt_scale, **opts
     )
-    optim.run(obs_data, args.num_iters, out_dir, vis)
+    optim.run(obs_data, cfg.optim.smooth.num_iters, out_dir, vis)
     c = time.time()
     print('Smooth optimization time: ', c - b)
 
-    # HMP
     prior_out = os.path.join(out_dir, 'prior')
     has_prior_results = os.path.isdir(prior_out) and any(
         f.endswith('_world_results.npz') for f in os.listdir(prior_out)
@@ -149,13 +124,12 @@ def main():
 
     out_dir = os.path.abspath("outputs")
     os.makedirs(out_dir, exist_ok=True)
-    os.chdir(out_dir)
     print("out_dir", out_dir)
 
     dataset = get_dataset_from_cfg(cfg)
-    save_track_info(dataset, out_dir)
 
     if cfg.run_opt:
+        os.chdir(out_dir)
         device = get_device()
         run_opt(cfg, dataset, out_dir, device)
 
