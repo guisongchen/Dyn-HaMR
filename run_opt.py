@@ -133,11 +133,11 @@ def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
     w2c[:, 3, 3] = 1.0
 
     cameras = {
-        "num_frames": T,
-        "w2c": w2c.tolist(),
         "intrins": opt['intrins'].tolist(),
         "height": 1080,
         "width": 1920,
+        "num_frames": T,
+        "w2c": w2c.tolist(),
     }
     cam_out = os.path.join(out_dir, "cameras.json")
     with open(cam_out, "w") as f:
@@ -167,7 +167,7 @@ def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
                     "betas": betas.tolist(),
                     "body_pose": poses[t].reshape(45).tolist(),
                     "global_orient": orients[t].tolist(),
-                    "cam_trans": trans[t].tolist(),
+                    "world_trans": trans[t].tolist(),
                 },
                 "keypoints": {
                     "pose_keypoints_2d": kp,
