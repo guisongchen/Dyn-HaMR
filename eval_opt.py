@@ -79,7 +79,7 @@ def load_hands(path):
             j2d[fid] = np.array(k['pose_keypoints_2d']).reshape(21, 3)
             pose[fid] = np.array(m['body_pose']).reshape(15, 3)
             orient[fid] = np.array(m['global_orient'])
-            trans[fid] = np.array(m.get('world_trans', m['cam_trans']))
+            trans[fid] = np.array(m.get('world_trans', m.get('cam_trans')))
             if betas is None:
                 betas = np.array(m['betas'])
         result.append({'is_right': ir, 'joints2d': j2d, 'pose': pose,
