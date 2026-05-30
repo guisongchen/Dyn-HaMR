@@ -56,7 +56,8 @@ Each W2C matrix has the structure `[R | t; 0 0 0 1]`:
             "world_trans": [3 floats]
           },
           "keypoints": {
-            "pose_keypoints_2d": [63 floats]
+            "pose_keypoints_2d": [63 floats],
+            "pose_keypoints_3d": [63 floats]
           }
         }
       ]
@@ -74,6 +75,7 @@ Each W2C matrix has the structure `[R | t; 0 0 0 1]`:
 | `hands[].frames[].mano.global_orient` | [3] | float | Wrist **world-space** orientation, angle-axis (Rodrigues). |
 | `hands[].frames[].mano.world_trans` | [3] | float | Wrist **world-space** translation `[tx, ty, tz]` in **meters**. |
 | `hands[].frames[].keypoints.pose_keypoints_2d` | [63] | float | 21 keypoints × 3 values `[x, y, confidence]`. Copied from the input estimator. Zero-padded if the hand was not detected in this frame. |
+| `hands[].frames[].keypoints.pose_keypoints_3d` | [63] | float | **(Optional)** 21 keypoints × 3 values `[x, y, z]` in **world space** (meters). Computed from the MANO model using the optimized parameters. Absent if export was performed by an older version. |
 
 ---
 
@@ -118,3 +120,4 @@ The export format is intentionally similar to the input format consumed by Dyn-H
 - [ ] `world_trans` values are in **meters** and in **world space**, not camera space.
 - [ ] `w2c` matrices are valid homogeneous transforms (bottom row `[0,0,0,1]`).
 - [ ] Intrinsics are in **pixels**.
+- [ ] `pose_keypoints_3d` is present and contains 21 joints × 3 coordinates in **world space** (meters).

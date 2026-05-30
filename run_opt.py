@@ -23,6 +23,7 @@ from body_model import MANO
 from util.tensor import get_device, move_to
 
 from run_vis import run_vis
+from body_model.utils import run_mano
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'HMP'))
 
@@ -99,6 +100,7 @@ def run_opt(cfg, dataset, out_dir, device):
         os.path.join(out_dir, "smooth_fit", f"{args.seq}_000300_world_results.npz"),
         os.path.join(cfg.data.root, "hands.json"),
         out_dir,
+        hand_model,
     )
 
     prior_out = os.path.join(out_dir, 'prior')
@@ -116,7 +118,7 @@ def run_opt(cfg, dataset, out_dir, device):
     print('prior optimization time: ', d-c)
 
 
-def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
+def export_canonical_json(opt_npz_path, hands_json_path, out_dir, body_model):
     """Convert optimized .npz to canonical cameras.json + hands.json format."""
     opt = np.load(opt_npz_path)
     with open(hands_json_path) as f:
@@ -144,6 +146,17 @@ def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
         json.dump(cameras, f, indent=1)
     print(f"Exported {cam_out}")
 
+    # --- compute 3D joints via MANO ---
+    device = next(body_model.buffers()).device
+    trans_t = torch.from_numpy(opt['trans']).float().to(device)          # [B, T, 3]
+    root_orient_t = torch.from_numpy(opt['root_orient']).float().to(device)  # [B, T, 3]
+    body_pose_t = torch.from_numpy(opt['pose_body']).float().to(device).reshape(B, T, -1)  # [B, T, 45]
+    is_right_t = torch.from_numpy(opt['is_right']).float().to(device)    # [B, T] or [B, 1]
+    betas_t = torch.from_numpy(opt['betas']).float().to(device)          # [B, 10]
+    with torch.no_grad():
+        mano_out = run_mano(body_model, trans_t, root_orient_t, body_pose_t, is_right_t, betas_t)
+        joints3d = mano_out["joints"].cpu().numpy()  # [B, T, J, 3]
+
     # --- hands.json ---
     hands_out = []
     for h in range(B):
@@ -151,7 +164,6 @@ def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
         poses = opt['pose_body'][h]       # [T, 15, 3]
         orients = opt['root_orient'][h]   # [T, 3]
         trans = opt['trans'][h]           # [T, 3]  world space
-
         betas = opt['betas'][h]           # [10]
 
         in_frames = {f['frame_id']: f for f in in_hands[h]['frames']}
@@ -171,6 +183,7 @@ def export_canonical_json(opt_npz_path, hands_json_path, out_dir):
                 },
                 "keypoints": {
                     "pose_keypoints_2d": kp,
+                    "pose_keypoints_3d": joints3d[h, t].reshape(-1).tolist(),
                 }
             })
 
