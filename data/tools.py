@@ -175,6 +175,7 @@ def load_combined_hands(hands_path, seq_len, start_idx, end_idx, interp=True, nu
         data = json.load(f)
 
     hands = data["hands"]
+    hands = sorted(hands, key=lambda h: h["is_right"])
 
     all_joints2d = []
     all_pose = []

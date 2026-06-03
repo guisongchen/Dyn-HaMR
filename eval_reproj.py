@@ -196,8 +196,23 @@ def main():
 
     cams = load_cameras(args.cameras)
     hands, has_3d = load_hands(args.hands)
-    T = cams['num_frames']
+
+    # Align frame counts across cameras and hands
+    T_align = min(
+        cams['num_frames'],
+        *[len(h['joints3d']) for h in hands],
+        *[len(h['joints2d']) for h in hands],
+    )
+    cams['w2c'] = cams['w2c'][:T_align]
+    if cams['intrins'].ndim == 2:
+        cams['intrins'] = cams['intrins'][:T_align]
+    for h in hands:
+        h['joints3d'] = h['joints3d'][:T_align]
+        h['joints2d'] = h['joints2d'][:T_align]
+
+    T = T_align
     B = len(hands)
+    print(f'Aligned evaluation to {T} frames (cameras={cams["num_frames"]})')
 
     # Fallback: compute 3D joints via MANO if not present in JSON
     if not has_3d:

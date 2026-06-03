@@ -71,6 +71,28 @@ class MultiPeopleDataset(Dataset):
         self.data_dict = {}
         self.cam_data = None
 
+    def _get_camera_frame_count(self):
+        """Return the number of frames in the camera source, or inf if unavailable."""
+        camera_source = self.camera_cfg.get("source", "")
+        if not camera_source:
+            return float("inf")
+
+        json_path = os.path.join(camera_source, "cameras.json")
+        npz_path = os.path.join(camera_source, "cameras.npz")
+
+        camera_type = self.camera_cfg.get("type", "canonical_npz")
+        try:
+            if camera_type == "canonical_json" and os.path.isfile(json_path):
+                with open(json_path) as f:
+                    cam_data = json.load(f)
+                return len(cam_data.get("w2c", []))
+            elif os.path.isfile(npz_path):
+                cam_data = np.load(npz_path)
+                return len(cam_data["w2c"])
+        except Exception as e:
+            print(f"Warning: could not read camera frame count: {e}")
+        return float("inf")
+
     def _prepare_images(self, total_frames, start_idx, end_idx):
         src = self.img_source
         if os.path.isdir(src):
@@ -144,10 +166,26 @@ class MultiPeopleDataset(Dataset):
             for frame in hand["frames"]:
                 frame_ids.append(frame["frame_id"])
         all_frame_ids = sorted(set(frame_ids))
-        total_frames = max(all_frame_ids) + 1 if all_frame_ids else 0
+        hands_total = max(all_frame_ids) + 1 if all_frame_ids else 0
+
+        # Align frame counts across hands, images/video, and cameras
+        cam_total = self._get_camera_frame_count()
+        user_end = end_idx if end_idx > 0 else float("inf")
+        total_frames = int(min(hands_total, cam_total, user_end))
+        if total_frames <= start_idx:
+            raise ValueError(
+                f"No frames to load: start_idx={start_idx}, hands={hands_total}, cameras={cam_total}, user_end={user_end}"
+            )
 
         self.img_names, self.img_paths, img_w, img_h, self.data_start, self.data_end = \
             self._prepare_images(total_frames, start_idx, end_idx)
+
+        # Images/video may be shorter than expected; ensure we don't exceed camera bounds
+        if self.data_end > cam_total:
+            self.data_end = int(cam_total)
+            self.img_names = self.img_names[: self.data_end - self.data_start]
+            if self.img_paths:
+                self.img_paths = self.img_paths[: self.data_end - self.data_start]
 
         self.num_imgs = len(self.img_names)
         self.img_size = img_w, img_h
@@ -159,20 +197,26 @@ class MultiPeopleDataset(Dataset):
             vis_mask = np.array([i in frame_set for i in range(self.data_start, self.data_end)])
             self.track_vis_masks.append(vis_mask)
 
-        sidx = self.data_start
-        eidx = self.data_end
-        self.start_idx = sidx
-        self.end_idx = eidx
-        self.seq_len = eidx - sidx
-        self.seq_intervals = [(sidx, eidx) for _ in range(self.n_tracks)]
+        self.seq_len = self.data_end - self.data_start
+        # Use relative indices (0, seq_len) consistent with _init_from_files
+        self.start_idx = 0
+        self.end_idx = self.seq_len
+        self.seq_intervals = [(0, self.seq_len) for _ in range(self.n_tracks)]
 
-        self.sel_img_paths = self.img_paths[sidx - self.data_start:eidx - self.data_start] if self.img_paths else []
-        self.sel_img_names = self.img_names[sidx - self.data_start:eidx - self.data_start]
+        self.sel_img_paths = self.img_paths[: self.seq_len] if self.img_paths else []
+        self.sel_img_names = self.img_names[: self.seq_len]
 
     def _init_from_files(self, img_dir, tid_spec, start_idx, end_idx):
         self.img_names, self.img_paths, img_w, img_h, self.data_start, self.data_end = \
             self._prepare_images(5000, start_idx, end_idx)
         assert self.img_paths, "No image frames found"
+
+        # Align to camera frame count if cameras are shorter than images
+        cam_total = self._get_camera_frame_count()
+        if self.data_end > cam_total:
+            self.data_end = int(cam_total)
+            self.img_names = self.img_names[: self.data_end - self.data_start]
+            self.img_paths = self.img_paths[: self.data_end - self.data_start]
 
         self.num_imgs = len(self.img_names)
         self.img_size = img_w, img_h
@@ -440,6 +484,14 @@ class CameraData(CameraDataProtocol):
             loaded = True
 
         if loaded:
+            N = len(cam_R)
+            if eidx > N:
+                print(f"Warning: camera slice {sidx}:{eidx} exceeds available {N} frames, clamping")
+                eidx = N
+            if sidx >= N:
+                raise ValueError(f"Camera start index {sidx} exceeds available {N} frames")
+
+            self.seq_len = eidx - sidx
             scale = img_w / width
             self.intrins = scale * intrins[sidx:eidx]
             t0 = -cam_t[sidx:sidx+1] + torch.randn(3) * 0.1
@@ -503,6 +555,8 @@ def load_cameras_npz(camera_path, v):
     else:
         intrins = torch.tensor([width, width, width / 2, height / 2])[None].repeat(N, 1)
 
+    if v > 0 and N != v:
+        print(f"Warning: expected {v} cameras but loaded {N}")
     print(f"Loaded {N} cameras")
     return cam_R, cam_t, intrins, width, height
 
@@ -523,5 +577,7 @@ def load_cameras_json(json_path, v):
     if intrins.ndim == 1:
         intrins = intrins[None].repeat(N, 1)
 
+    if v > 0 and N != v:
+        print(f"Warning: expected {v} cameras but loaded {N} from JSON")
     print(f"Loaded {N} cameras from JSON")
     return cam_R, cam_t, intrins, width, height

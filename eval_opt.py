@@ -123,7 +123,34 @@ opt_cams = load_cameras(args.opt_cameras)
 opt_hands = load_hands(args.opt_hands)
 
 B = len(opt_hands)
-T = opt_cams['num_frames']
+
+# ── Align frame counts across all sources ─────────────────────────
+T_align = min(
+    in_cams['num_frames'],
+    opt_cams['num_frames'],
+    *[len(h['joints2d']) for h in in_hands],
+    *[len(h['joints2d']) for h in opt_hands],
+)
+
+# Slice time-varying data to the common length
+in_cams['w2c'] = in_cams['w2c'][:T_align]
+opt_cams['w2c'] = opt_cams['w2c'][:T_align]
+if in_cams['intrins'].ndim == 2:
+    in_cams['intrins'] = in_cams['intrins'][:T_align]
+if opt_cams['intrins'].ndim == 2:
+    opt_cams['intrins'] = opt_cams['intrins'][:T_align]
+
+for h in in_hands:
+    for key in ['joints2d', 'pose', 'orient', 'trans']:
+        h[key] = h[key][:T_align]
+for h in opt_hands:
+    for key in ['joints2d', 'pose', 'orient', 'trans']:
+        h[key] = h[key][:T_align]
+
+T = T_align
+print(f'Aligned evaluation to {T} frames '
+      f'(in_cams={in_cams["num_frames"]}, opt_cams={opt_cams["num_frames"]})')
+
 fx, fy, cx, cy = opt_cams['intrins'].astype(np.float64)
 
 JNAMES = ['Wrist','I1','I2','I3','M1','M2','M3','P1','P2','P3',
@@ -165,6 +192,7 @@ for h in range(B):
 
     fids = sorted([f['frame_id'] for f in
                    json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     opt_per_frame = np.array([e_opt[t, mask[t]].mean() if mask[t].sum() > 0 else np.nan for t in range(T)])
     in_per_frame  = np.array([e_in[t, mask[t]].mean() if mask[t].sum() > 0 else np.nan for t in range(T)])
 
@@ -206,8 +234,10 @@ for h in range(B):
 
 # ── Cross-hand ───────────────────────────────────────────────────
 if B == 2:
-    in_fids0 = set(f['frame_id'] for f in json.load(open(args.input_hands))['hands'][0]['frames'])
-    in_fids1 = set(f['frame_id'] for f in json.load(open(args.input_hands))['hands'][1]['frames'])
+    in_fids0 = {f['frame_id'] for f in json.load(open(args.input_hands))['hands'][0]['frames']}
+    in_fids1 = {f['frame_id'] for f in json.load(open(args.input_hands))['hands'][1]['frames']}
+    in_fids0 = {f for f in in_fids0 if f < T}
+    in_fids1 = {f for f in in_fids1 if f < T}
     common = sorted(in_fids0 & in_fids1)
     if common:
         hh_dist = np.linalg.norm(opt_hands[0]['trans'][common] - opt_hands[1]['trans'][common], axis=1)
@@ -300,6 +330,7 @@ gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
 ax = fig.add_subplot(gs[0, 0])
 for h in range(B):
     fids = sorted([f['frame_id'] for f in json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     t = opt_hands[h]['trans'][fids]
     ax.plot(t[:, 0], t[:, 2], c=C[h], lw=0.6, label=f'{HNAMES[h]} opt')
     ax.scatter(*t[0, [0, 2]], c=C[h], s=30, marker='o')
@@ -311,6 +342,7 @@ ax.legend(fontsize=7); ax.grid(True, alpha=0.3); ax.axis('equal')
 ax = fig.add_subplot(gs[0, 1])
 for h in range(B):
     fids = sorted([f['frame_id'] for f in json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     t = in_hands[h]['trans'][fids]
     ax.plot(t[:, 0], t[:, 2], c=C[h], lw=0.6, label=f'{HNAMES[h]} in (cam)')
     ax.scatter(*t[0, [0, 2]], c=C[h], s=30, marker='o')
@@ -322,6 +354,7 @@ ax.legend(fontsize=7); ax.grid(True, alpha=0.3); ax.axis('equal')
 ax = fig.add_subplot(gs[0, 2])
 for h in range(B):
     fids = sorted([f['frame_id'] for f in json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     ax.plot(fids, opt_hands[h]['trans'][fids, 1], c=C[h], lw=0.8, label=f'{HNAMES[h]} opt')
     ax.plot(fids, in_hands[h]['trans'][fids, 1], c=C[h], lw=0.4, ls='--', alpha=0.5, label=f'{HNAMES[h]} in')
 ax.set_xlabel('Frame'); ax.set_ylabel('Y (m)')
@@ -331,6 +364,7 @@ ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
 ax = fig.add_subplot(gs[1, 0])
 for h in range(B):
     fids = sorted([f['frame_id'] for f in json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     o_opt = np.linalg.norm(opt_hands[h]['orient'][fids], axis=1)
     ax.plot(fids, np.rad2deg(o_opt), c=C[h], lw=0.8, label=f'{HNAMES[h]} opt')
     o_in = np.linalg.norm(in_hands[h]['orient'][fids], axis=1)
@@ -342,6 +376,7 @@ ax.legend(fontsize=7); ax.grid(True, alpha=0.3)
 ax = fig.add_subplot(gs[1, 1])
 for h in range(B):
     fids = sorted([f['frame_id'] for f in json.load(open(args.input_hands))['hands'][h]['frames']])
+    fids = [f for f in fids if f < T]
     o_diff_opt = orient_diffs(opt_hands[h]['orient'][fids])
     ax.plot(fids[:-1], np.rad2deg(o_diff_opt), c=C[h], lw=0.8, label=f'{HNAMES[h]} opt')
     o_diff_in = orient_diffs(in_hands[h]['orient'][fids])
