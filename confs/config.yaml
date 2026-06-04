@@ -18,9 +18,9 @@ vis:
     - prior
     # - init
   render_views:
-    - above
-    - side
-    - front
+    # - above
+    # - side
+    # - front
     - src_cam
   make_grid: True
   overwrite: True

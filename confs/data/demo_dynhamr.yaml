@@ -1,6 +1,6 @@
 type: video
 split: custom
-root: /home/ccc/projects/Dyn-HaMR/demo_data
+root: /home/ccc/projects/Dyn-HaMR/demo_data/cabin
 video_dir: dynhamr_out
 seq: dynhamr_out
 ext: jpg
