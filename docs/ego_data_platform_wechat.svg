@@ -1,0 +1,304 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" width="900" height="1200">
+  <defs>
+    <!-- 背景渐变 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="50%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+
+    <!-- 卡片渐变 -->
+    <linearGradient id="cardLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+
+    <linearGradient id="blueCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="100%" stop-color="#bfdbfe"/>
+    </linearGradient>
+
+    <linearGradient id="tealCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ccfbf1"/>
+      <stop offset="100%" stop-color="#99f6e4"/>
+    </linearGradient>
+
+    <linearGradient id="purpleCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f3e8ff"/>
+      <stop offset="100%" stop-color="#e9d5ff"/>
+    </linearGradient>
+
+    <linearGradient id="orangeCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffedd5"/>
+      <stop offset="100%" stop-color="#fed7aa"/>
+    </linearGradient>
+
+    <linearGradient id="greenCard" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#dcfce7"/>
+      <stop offset="100%" stop-color="#bbf7d0"/>
+    </linearGradient>
+
+    <linearGradient id="platformGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- 阴影 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000000" flood-opacity="0.06"/>
+    </filter>
+
+    <!-- 箭头 -->
+    <marker id="arrowDark" markerWidth="7" markerHeight="7" refX="6" refY="2.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,4.5 L6,2.25 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowWhite" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#ffffff"/>
+    </marker>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="900" height="1200" fill="url(#bgGrad)"/>
+
+  <!-- 顶部装饰条 -->
+  <rect width="900" height="8" fill="#3b82f6"/>
+
+  <!-- 标题区 -->
+  <text x="450" y="80" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="38" font-weight="800" fill="#0f172a">
+    Ego-centric 数据
+  </text>
+  <text x="450" y="125" text-anchor="middle" font-family="system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="24" font-weight="600" fill="#3b82f6">
+    从采集到训练就绪的完整闭环
+  </text>
+
+  <!-- 第一模块：Ego-centric 数据价值 -->
+  <g transform="translate(50, 160)">
+    <rect width="800" height="300" rx="16" fill="url(#cardLight)" stroke="#e2e8f0" stroke-width="1.5" filter="url(#shadow)"/>
+
+    <text x="30" y="45" font-family="system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="20" font-weight="700" fill="#1e293b">
+      01  为什么 Ego-centric 数据更重要？
+    </text>
+
+    <!-- 左侧：第一人称视角示意 -->
+    <g transform="translate(30, 70)">
+      <rect width="260" height="200" rx="12" fill="url(#blueCard)" stroke="#60a5fa" stroke-width="1.5"/>
+
+      <!-- 人头轮廓 -->
+      <circle cx="130" cy="65" r="28" fill="#ffffff" stroke="#3b82f6" stroke-width="2"/>
+      <path d="M110,55 Q130,45 150,55" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+      <circle cx="120" cy="62" r="3" fill="#3b82f6"/>
+      <circle cx="140" cy="62" r="3" fill="#3b82f6"/>
+
+      <!-- 相机/视野 -->
+      <path d="M130,93 L130,115" stroke="#3b82f6" stroke-width="3"/>
+      <path d="M80,165 L130,115 L180,165 Z" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+      <text x="130" y="150" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#1e40af">第一人称视野</text>
+
+      <text x="130" y="185" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="600" fill="#1e40af">头戴相机采集 · 与执行者视角一致</text>
+    </g>
+
+    <!-- 中间：三大优势 -->
+    <g transform="translate(310, 75)">
+      <g transform="translate(0, 0)">
+        <rect width="220" height="55" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" filter="url(#softShadow)"/>
+        <text x="20" y="22" font-family="system-ui, sans-serif" font-size="16">👁️</text>
+        <text x="45" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#334155">真实遮挡关系</text>
+        <text x="45" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">保留执行者实际看到的遮挡</text>
+      </g>
+
+      <g transform="translate(0, 70)">
+        <rect width="220" height="55" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" filter="url(#softShadow)"/>
+        <text x="20" y="22" font-family="system-ui, sans-serif" font-size="16">📐</text>
+        <text x="45" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#334155">真实视野边界</text>
+        <text x="45" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">与机器人头部相机输入一致</text>
+      </g>
+
+      <g transform="translate(0, 140)">
+        <rect width="220" height="55" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1" filter="url(#softShadow)"/>
+        <text x="20" y="22" font-family="system-ui, sans-serif" font-size="16">🎬</text>
+        <text x="45" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#334155">真实运动视差</text>
+        <text x="45" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">视觉分布高度匹配机器人感知</text>
+      </g>
+    </g>
+
+    <!-- 右侧：Scaling Law 图表 -->
+    <g transform="translate(545, 75)">
+      <rect width="230" height="200" rx="12" fill="url(#tealCard)" stroke="#14b8a6" stroke-width="1.5"/>
+
+      <text x="115" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="700" fill="#0f766e">Scaling Law（NVIDIA Ego-Scale）</text>
+
+      <!-- 坐标轴 -->
+      <line x1="40" y1="170" x2="210" y2="170" stroke="#0f766e" stroke-width="2"/>
+      <line x1="40" y1="170" x2="40" y2="50" stroke="#0f766e" stroke-width="2"/>
+
+      <!-- 对数线性曲线 -->
+      <path d="M40,150 Q80,130 120,95 Q160,65 210,45" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- 数据点 -->
+      <circle cx="60" cy="138" r="4" fill="#0f766e"/>
+      <circle cx="100" cy="110" r="4" fill="#0f766e"/>
+      <circle cx="140" cy="78" r="4" fill="#0f766e"/>
+      <circle cx="185" cy="55" r="4" fill="#0f766e"/>
+
+      <text x="125" y="190" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#0f766e">数据规模 ↑</text>
+      <text x="20" y="110" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#0f766e" transform="rotate(-90, 20, 110)">验证损失 ↓</text>
+
+      <text x="115" y="150" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#115e59">近对数线性关系</text>
+    </g>
+  </g>
+
+  <!-- 转折箭头 -->
+  <g transform="translate(450, 480)">
+    <line x1="0" y1="0" x2="0" y2="50" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6,4" marker-end="url(#arrowDark)"/>
+  </g>
+
+  <!-- 第二模块：预处理挑战 -->
+  <g transform="translate(50, 550)">
+    <rect width="800" height="140" rx="16" fill="#fef2f2" stroke="#fca5a5" stroke-width="1.5"/>
+
+    <text x="30" y="40" font-family="system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="20" font-weight="700" fill="#991b1b">
+      02  传统预处理面临的挑战
+    </text>
+
+    <g transform="translate(30, 65)">
+      <rect width="230" height="55" rx="8" fill="#ffffff" stroke="#fecaca" stroke-width="1"/>
+      <text x="20" y="22" font-family="system-ui, sans-serif" font-size="18">⚙️</text>
+      <text x="48" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#7f1d1d">环境配置复杂</text>
+      <text x="48" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#991b1b">依赖多个本地脚本与依赖库</text>
+    </g>
+
+    <g transform="translate(290, 65)">
+      <rect width="230" height="55" rx="8" fill="#ffffff" stroke="#fecaca" stroke-width="1"/>
+      <text x="20" y="22" font-family="system-ui, sans-serif" font-size="18">🔄</text>
+      <text x="48" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#7f1d1d">结果难以复现</text>
+      <text x="48" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#991b1b">不同环境输出不一致</text>
+    </g>
+
+    <g transform="translate(550, 65)">
+      <rect width="230" height="55" rx="8" fill="#ffffff" stroke="#fecaca" stroke-width="1"/>
+      <text x="20" y="22" font-family="system-ui, sans-serif" font-size="18">📁</text>
+      <text x="48" y="22" font-family="system-ui, 'PingFang SC', sans-serif" font-size="14" font-weight="600" fill="#7f1d1d">格式不统一</text>
+      <text x="48" y="42" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#991b1b">各环节输出难以对接训练框架</text>
+    </g>
+  </g>
+
+  <!-- 第三模块：平台解决方案 -->
+  <g transform="translate(50, 720)">
+    <rect width="800" height="410" rx="18" fill="#ffffff" stroke="#e2e8f0" stroke-width="2" filter="url(#shadow)"/>
+
+    <text x="30" y="45" font-family="system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="20" font-weight="700" fill="#0f172a">
+      03  如祺具身智能数据平台：标准化自动化闭环
+    </text>
+
+    <!-- 阶段 1：数据采集 -->
+    <g transform="translate(30, 70)">
+      <rect width="105" height="85" rx="10" fill="url(#blueCard)" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#1e40af">1. 数据采集</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">🎥</text>
+      <text x="52" y="75" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="10" fill="#1e3a8a">头戴相机采集</text>
+    </g>
+
+    <!-- 箭头 -->
+    <line x1="135" y1="112" x2="150" y2="112" stroke="#475569" stroke-width="1.5" marker-end="url(#arrowDark)"/>
+
+    <!-- 阶段 2：数据导入 -->
+    <g transform="translate(155, 70)">
+      <rect width="105" height="85" rx="10" fill="url(#purpleCard)" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#6b21a8">2. 数据导入</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">📥</text>
+      <text x="52" y="75" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="10" fill="#581c87">上传至平台</text>
+    </g>
+
+    <!-- 箭头 -->
+    <line x1="260" y1="112" x2="275" y2="112" stroke="#475569" stroke-width="1.5" marker-end="url(#arrowDark)"/>
+
+    <!-- 阶段 3：AI预处理 -->
+    <g transform="translate(280, 70)">
+      <rect width="105" height="85" rx="10" fill="url(#orangeCard)" stroke="#f97316" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#9a3412">3. AI预处理</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">🤖</text>
+      <text x="52" y="72" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="9" fill="#7c2d12">手部检测+位姿估计</text>
+    </g>
+
+    <!-- 箭头 -->
+    <line x1="385" y1="112" x2="400" y2="112" stroke="#475569" stroke-width="1.5" marker-end="url(#arrowDark)"/>
+
+    <!-- 阶段 4：动作标注 -->
+    <g transform="translate(405, 70)">
+      <rect width="105" height="85" rx="10" fill="url(#tealCard)" stroke="#14b8a6" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#0f766e">4. 动作标注</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">✍️</text>
+      <text x="52" y="75" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="10" fill="#115e59">语义/时序标注</text>
+    </g>
+
+    <!-- 箭头 -->
+    <line x1="510" y1="112" x2="525" y2="112" stroke="#475569" stroke-width="1.5" marker-end="url(#arrowDark)"/>
+
+    <!-- 阶段 5：审核质检 -->
+    <g transform="translate(530, 70)">
+      <rect width="105" height="85" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#92400e">5. 审核质检</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">✅</text>
+      <text x="52" y="75" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="10" fill="#92400e">质量校验与反馈</text>
+    </g>
+
+    <!-- 箭头 -->
+    <line x1="635" y1="112" x2="650" y2="112" stroke="#475569" stroke-width="1.5" marker-end="url(#arrowDark)"/>
+
+    <!-- 阶段 6：格式转换 -->
+    <g transform="translate(655, 70)">
+      <rect width="105" height="85" rx="10" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.5"/>
+      <text x="52" y="28" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="700" fill="#3730a3">6. 格式转换</text>
+      <text x="52" y="54" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18">🔄</text>
+      <text x="52" y="75" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="10" fill="#3730a3">统一训练格式</text>
+    </g>
+
+    <!-- 闭环循环 -->
+    <path d="M707,155 L707,210 L42,210 L42,155" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="8,5" marker-start="url(#arrowDark)"/>
+    <text x="375" y="200" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="12" fill="#475569">质检反馈 · 可追溯 · 持续迭代优化</text>
+
+    <!-- 输出 -->
+    <g transform="translate(320, 230)">
+      <rect width="220" height="70" rx="10" fill="url(#greenCard)" stroke="#22c55e" stroke-width="2"/>
+      <text x="110" y="30" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="15" font-weight="700" fill="#14532d">📦 训练就绪数据集</text>
+      <text x="110" y="52" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="12" fill="#166534">标准化 · 可直接用于训练</text>
+    </g>
+
+    <!-- 四大特性 -->
+    <g transform="translate(30, 330)">
+      <rect width="170" height="55" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="85" y="22" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="600" fill="#334155">⚙️ 标准化</text>
+      <text x="85" y="42" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">统一流程与接口</text>
+    </g>
+
+    <g transform="translate(220, 330)">
+      <rect width="170" height="55" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="85" y="22" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="600" fill="#334155">🤖 自动化</text>
+      <text x="85" y="42" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">全流程自动调度</text>
+    </g>
+
+    <g transform="translate(410, 330)">
+      <rect width="170" height="55" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="85" y="22" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="600" fill="#334155">🔍 可追溯</text>
+      <text x="85" y="42" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">完整执行日志</text>
+    </g>
+
+    <g transform="translate(600, 330)">
+      <rect width="170" height="55" rx="8" fill="#f1f5f9" stroke="#e2e8f0" stroke-width="1"/>
+      <text x="85" y="22" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="13" font-weight="600" fill="#334155">✅ 可质检</text>
+      <text x="85" y="42" text-anchor="middle" font-family="system-ui, 'PingFang SC', sans-serif" font-size="11" fill="#64748b">质量校验与反馈</text>
+    </g>
+  </g>
+
+  <!-- 底部 slogan -->
+  <text x="450" y="1160" text-anchor="middle" font-family="system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="18" font-weight="600" fill="#334155">
+    让 Ego-centric 数据真正成为可预测、可复现、可规模化的训练资产
+  </text>
+
+  <!-- 底部装饰线 -->
+  <rect x="350" y="1175" width="200" height="4" rx="2" fill="#3b82f6"/>
+</svg>

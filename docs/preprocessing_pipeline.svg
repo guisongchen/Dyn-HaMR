@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="1200" height="560">
+  <defs>
+    <!-- 渐变背景 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fafbfc"/>
+      <stop offset="100%" stop-color="#f0f4f8"/>
+    </linearGradient>
+
+    <!-- 阶段渐变 -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e3f2fd"/>
+      <stop offset="100%" stop-color="#bbdefb"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fff3e0"/>
+      <stop offset="100%" stop-color="#ffe0b2"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#e8f5e9"/>
+      <stop offset="100%" stop-color="#c8e6c9"/>
+    </linearGradient>
+    <linearGradient id="grayGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f5f5f5"/>
+      <stop offset="100%" stop-color="#e0e0e0"/>
+    </linearGradient>
+
+    <!-- 阴影 -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+
+    <!-- 箭头标记 -->
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#546e7a"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#1976d2"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#f57c00"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#388e3c"/>
+    </marker>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1200" height="560" fill="url(#bgGrad)" rx="12"/>
+
+  <!-- 标题 -->
+  <text x="600" y="45" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" font-weight="600" fill="#263238">
+    AI 预处理流水线
+  </text>
+  <text x="600" y="70" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="14" fill="#607d8b">
+    独立调度 · 独立重试 · 完整日志
+  </text>
+
+  <!-- 输入：视频帧 -->
+  <g transform="translate(60, 150)">
+    <rect width="140" height="180" rx="12" fill="url(#grayGrad)" stroke="#9e9e9e" stroke-width="2" filter="url(#shadow)"/>
+    <text x="70" y="35" text-anchor="middle" font-family="system-ui, sans-serif" font-size="15" font-weight="600" fill="#424242">输入</text>
+    <text x="70" y="60" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26">🎥</text>
+    <text x="70" y="95" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#424242">单目视频序列</text>
+    <text x="70" y="120" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#616161">I<tspan dy="3" font-size="10">t</tspan></text>
+    <text x="70" y="150" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#757575">ego-centric</text>
+    <text x="70" y="168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#757575">动态场景</text>
+  </g>
+
+  <!-- 箭头：输入 → 阶段1 -->
+  <line x1="200" y1="240" x2="250" y2="240" stroke="#546e7a" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- 箭头：输入 → 阶段2 -->
+  <path d="M200,260 Q230,330 250,330" fill="none" stroke="#546e7a" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 阶段 1：手部检测 -->
+  <g transform="translate(260, 150)">
+    <rect width="240" height="180" rx="14" fill="url(#blueGrad)" stroke="#1976d2" stroke-width="2.5" filter="url(#shadow)"/>
+    <text x="120" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#0d47a1">阶段 1：手部检测</text>
+    <text x="120" y="55" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20">🖐</text>
+    <text x="120" y="85" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#1565c0">检测器</text>
+    <text x="120" y="110" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#424242">遮挡与复杂背景鲁棒</text>
+    <rect x="25" y="130" width="190" height="34" rx="6" fill="#ffffff" stroke="#1976d2" stroke-width="1.2"/>
+    <text x="120" y="150" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#1565c0">每帧 21×2D/3D 关键点</text>
+  </g>
+
+  <!-- 阶段 2：位姿估计 -->
+  <g transform="translate(260, 340)">
+    <rect width="240" height="170" rx="14" fill="url(#orangeGrad)" stroke="#f57c00" stroke-width="2.5" filter="url(#shadow)"/>
+    <text x="120" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#e65100">阶段 2：位姿估计</text>
+    <text x="120" y="55" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20">📍</text>
+    <text x="120" y="85" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#ef6c00">视觉 + 深度融合 SLAM</text>
+    <text x="120" y="110" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#424242">动态 ego-centric 轨迹稳定</text>
+    <rect x="30" y="125" width="180" height="30" rx="6" fill="#ffffff" stroke="#f57c00" stroke-width="1.2"/>
+    <text x="120" y="145" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#ef6c00">6DoF 相机位姿 T<tspan dy="3" font-size="10">t</tspan></text>
+  </g>
+
+  <!-- 箭头：阶段1 → 阶段3 -->
+  <path d="M500,260 Q540,260 560,280" fill="none" stroke="#1976d2" stroke-width="2.5" marker-end="url(#arrowBlue)"/>
+  <text x="540" y="252" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#1976d2">关键点</text>
+
+  <!-- 箭头：阶段2 → 阶段3 -->
+  <path d="M500,410 Q540,410 560,380" fill="none" stroke="#f57c00" stroke-width="2.5" marker-end="url(#arrowOrange)"/>
+  <text x="540" y="425" text-anchor="middle" font-family="system-ui, sans-serif" font-size="11" fill="#f57c00">相机轨迹</text>
+
+  <!-- 阶段 3：手部 3D 姿态优化 -->
+  <g transform="translate(570, 240)">
+    <rect width="300" height="180" rx="14" fill="url(#greenGrad)" stroke="#388e3c" stroke-width="2.5" filter="url(#shadow)"/>
+    <text x="150" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#1b5e20">阶段 3：手部 3D 姿态优化</text>
+    <text x="150" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20">🌍</text>
+    <text x="150" y="88" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#2e7d32">相机坐标系 → 世界坐标系</text>
+    <text x="150" y="113" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" fill="#424242">时序平滑 + 尺度对齐</text>
+    <rect x="35" y="133" width="230" height="34" rx="6" fill="#ffffff" stroke="#388e3c" stroke-width="1.2"/>
+    <text x="150" y="155" text-anchor="middle" font-family="system-ui, sans-serif" font-size="12" font-weight="600" fill="#2e7d32">4D 全局手部运动轨迹</text>
+  </g>
+
+  <!-- 输出结果 -->
+  <g transform="translate(910, 270)">
+    <rect width="230" height="120" rx="12" fill="#ffffff" stroke="#546e7a" stroke-width="2" stroke-dasharray="6,4" filter="url(#shadow)"/>
+    <text x="115" y="30" text-anchor="middle" font-family="system-ui, sans-serif" font-size="15" font-weight="700" fill="#37474f">最终输出</text>
+    <text x="115" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#455a64">世界坐标系下</text>
+    <text x="115" y="82" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" fill="#455a64">平滑一致的</text>
+    <text x="115" y="106" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#2e7d32">4D 手部运动序列</text>
+  </g>
+
+  <!-- 箭头：阶段3 → 输出 -->
+  <line x1="870" y1="330" x2="910" y2="330" stroke="#388e3c" stroke-width="2.5" marker-end="url(#arrowGreen)"/>
+</svg>
